@@ -1,0 +1,2938 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Sembelit Rush</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#2e7d32;touch-action:none;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;user-select:none;-webkit-user-select:none}
+  canvas{display:block;width:100vw;height:100vh}
+  #hud{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;
+    padding:10px 16px;color:#fff;font-weight:800;font-size:18px;text-shadow:0 2px 4px rgba(0,0,0,.7);pointer-events:none}
+  #hud small{display:block;font-size:11px;font-weight:700;letter-spacing:1px;color:#ffd6e0}
+  #hud small.sub{font-size:10px;letter-spacing:0;opacity:.85;margin-top:1px}
+  #hud > div{background:linear-gradient(135deg,rgba(74,20,140,.6),rgba(233,30,99,.45));backdrop-filter:blur(6px);
+    -webkit-backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.25);border-radius:14px;padding:5px 11px;
+    font-size:clamp(13px,4vw,18px);box-shadow:0 4px 12px rgba(0,0,0,.25)}
+  button{font:inherit;border:0;cursor:pointer;color:inherit;-webkit-tap-highlight-color:transparent}
+
+  /* ===== Skrin utama & Game Over: minimalis — jalan bergerak di belakang dikaburkan, satu kad kaca di tengah ===== */
+  :root{--rg1:#fbe3db;--rg2:#e8b4a8;--rg3:#b76e79;--ink:#1a1030}
+  .overlay{position:fixed;inset:0;display:flex;padding:16px;color:#fff;overflow-y:auto;touch-action:pan-y;
+    text-align:center;background:radial-gradient(120% 90% at 50% 40%,rgba(26,16,48,.35),rgba(10,6,22,.82));
+    backdrop-filter:blur(7px) saturate(1.2);-webkit-backdrop-filter:blur(7px) saturate(1.2);animation:fadeIn .4s ease both}
+  .overlay.hidden{display:none}
+  #hud{transition:opacity .3s}
+  body:not(.playing) #hud{opacity:0}
+  .card{margin:auto;width:100%;max-width:340px;padding:26px 22px 20px;border-radius:28px;display:flex;flex-direction:column;
+    align-items:center;gap:14px;background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.05));
+    border:1px solid rgba(255,255,255,.16);box-shadow:0 24px 60px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.15);
+    animation:rise .5s cubic-bezier(.2,1.2,.4,1) .05s both}
+  .logo{width:72px;height:72px;border-radius:22px;display:grid;place-items:center;font-size:40px;
+    background:linear-gradient(145deg,var(--rg1),var(--rg2) 45%,var(--rg3));box-shadow:0 10px 26px rgba(183,110,121,.45);
+    animation:float 3s ease-in-out infinite}
+  .title{margin:0;font-size:clamp(30px,9vw,40px);font-weight:900;letter-spacing:-1px;line-height:1}
+  .title span{background:linear-gradient(180deg,var(--rg1),var(--rg2) 55%,#ffd180);-webkit-background-clip:text;
+    background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+  .tagline{margin:-6px 0 0;font-size:13px;opacity:.7}
+  .eyebrow{font-size:12px;font-weight:800;letter-spacing:3px;color:var(--rg2)}
+  .reason{margin:-8px 0 0;font-size:14px;font-weight:600;opacity:.85}
+  .scoreBig{font-size:64px;font-weight:900;line-height:.9;letter-spacing:-2px;
+    background:linear-gradient(180deg,#fff,var(--rg1) 60%,var(--rg2));-webkit-background-clip:text;background-clip:text;
+    color:transparent;-webkit-text-fill-color:transparent}
+  .scoreLabel{margin-top:-10px;font-size:11px;font-weight:800;letter-spacing:3px;opacity:.55}
+  .badge{font-size:12px;font-weight:700;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,.08);opacity:.8}
+  .badge.gold{opacity:1;color:var(--ink);background:linear-gradient(135deg,#fff3c4,#ffd54f);box-shadow:0 4px 14px rgba(255,213,79,.35)}
+  .badge:empty{display:none}
+  .stats{width:100%;display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .stats div{padding:9px 2px 7px;border-radius:14px;background:rgba(255,255,255,.06)}
+  .stats b{display:block;font-size:15px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stats span{display:block;margin-top:2px;font-size:9.5px;font-weight:700;letter-spacing:1px;opacity:.55;text-transform:uppercase}
+  .best{margin:-4px 0 0;font-size:12px;opacity:.65}
+  .best:empty{display:none}
+  /* pemilih kenderaan: tiga pil kecil */
+  .picker{width:100%;display:flex;gap:8px}
+  .pick{flex:1 1 0;min-width:0;padding:10px 4px 8px;font-size:26px;line-height:1;border-radius:16px;
+    background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.12);transition:transform .15s,background .2s,border-color .2s}
+  .pick small{display:block;margin-top:6px;font-size:10.5px;font-weight:700;opacity:.75}
+  .pick:active{transform:scale(.95)}
+  .pick.sel{background:rgba(251,227,219,.16);border-color:var(--rg2);box-shadow:0 0 0 3px rgba(232,180,168,.18)}
+  .pick.sel small{opacity:1;color:var(--rg1)}
+  /* butang utama */
+  .cta{width:100%;padding:15px 0;border-radius:18px;font-size:17px;font-weight:900;letter-spacing:1px;color:var(--ink);
+    background:linear-gradient(135deg,var(--rg1),var(--rg2) 50%,var(--rg3));box-shadow:0 10px 24px rgba(183,110,121,.4);
+    transition:transform .12s,box-shadow .12s}
+  .cta:active{transform:scale(.97);box-shadow:0 4px 12px rgba(183,110,121,.4)}
+  .cta kbd{font:inherit;font-size:10px;font-weight:700;opacity:.55;margin-left:6px}
+  /* cara main (boleh dibuka) */
+  .howto{width:100%;font-size:12.5px;text-align:left}
+  .howto summary{list-style:none;cursor:pointer;text-align:center;font-weight:700;opacity:.6;padding:2px}
+  .howto summary::-webkit-details-marker{display:none}
+  .howto summary::after{content:' ▾'}
+  .howto[open] summary::after{content:' ▴'}
+  .howto ul{margin:10px 0 0;padding:12px 14px;list-style:none;border-radius:16px;background:rgba(0,0,0,.22);line-height:1.65}
+  .howto li{opacity:.85}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  @keyframes rise{from{transform:translateY(18px) scale(.97);opacity:0}to{transform:none;opacity:1}}
+  @keyframes float{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-5px) rotate(3deg)}}
+  @media (max-height:640px){.card{gap:10px;padding:18px 18px 14px}.logo{width:56px;height:56px;font-size:30px}.scoreBig{font-size:52px}}
+  @media (prefers-reduced-motion:reduce){.overlay,.overlay *{animation:none!important}}
+  #muteBtn{position:fixed;top:66px;left:50%;transform:translateX(-50%);margin:0;padding:0;width:40px;height:40px;
+    font-size:20px;border-radius:50%;background:rgba(0,0,0,.45);box-shadow:none;color:#fff;z-index:5}
+  #muteBtn:active{transform:translateX(-50%) scale(.92)}
+  /* butang brek & pecut — hanya pada skrin sentuh */
+  .pedal{display:none;position:fixed;bottom:58px;margin:0;padding:0;width:68px;height:68px;border-radius:50%;
+    font-size:24px;line-height:1;color:#fff;z-index:5;touch-action:none;
+    background:rgba(26,16,51,.55);border:2px solid rgba(255,255,255,.35);box-shadow:0 4px 12px rgba(0,0,0,.3)}
+  .pedal small{display:block;font-size:10px;font-weight:800;letter-spacing:1px;margin-top:3px}
+  .pedal:active{transform:none;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+  .pedal.held{transform:scale(.92)}
+  #brakeBtn{left:14px}
+  #brakeBtn.held{background:rgba(229,57,53,.75)}
+  #gasBtn{right:14px}
+  #gasBtn.held{background:rgba(255,145,0,.8)}
+  @media (pointer:coarse){ body.playing .pedal{display:block} }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">
+  <div><small>SKOR</small><span id="score">0</span><small id="dist" class="sub">0 m</small></div>
+  <div style="text-align:center"><small>LAJU</small><span id="spd">0 km/j</span></div>
+  <div style="text-align:right"><small>TERBAIK</small><span id="best">0</span></div>
+</div>
+
+<button id="muteBtn" aria-label="Bunyi">🔊</button>
+<button id="brakeBtn" class="pedal" aria-label="Brek">🛑<small>BREK</small></button>
+<button id="gasBtn" class="pedal" aria-label="Pecut">⚡<small>PECUT</small></button>
+
+<div id="start" class="overlay">
+  <div class="card">
+    <div class="logo" id="logoIcon">🏍️</div>
+    <h1 class="title">Sembelit <span>Rush</span></h1>
+    <p class="tagline">Selit, pecut, jangan sampai terberak 💨</p>
+    <div class="picker"></div>
+    <button id="startBtn" class="cta">MAIN<kbd>ENTER</kbd></button>
+    <p id="startBest" class="best"></p>
+    <details class="howto">
+      <summary>Cara main</summary>
+      <ul>
+        <li>⬅️➡️ Belok · ⬆️ Pecut · ⬇️ Brek · M Bunyi</li>
+        <li>📱 Tekan kiri/kanan skrin · butang ⚡ 🛑</li>
+        <li>⭐ Selit celah dua kenderaan = bonus & combo</li>
+        <li>❤️ 5 nyawa — gesel tepi tolak nyawa & skor</li>
+        <li>🕳️ Lubang & lama atas garisan = hilang kawalan</li>
+        <li>💥 Langgar belakang kenderaan / haiwan = tamat</li>
+        <li>🎯 Siap misi = bonus · 📍 Lama di 160 km/j = lokasi baru</li>
+      </ul>
+    </details>
+  </div>
+</div>
+
+<div id="over" class="overlay hidden">
+  <div class="card">
+    <div class="eyebrow">GAME OVER</div>
+    <p id="reason" class="reason"></p>
+    <div class="scoreBig" id="finalPts">0</div>
+    <div class="scoreLabel">SKOR</div>
+    <div id="newBest" class="badge"></div>
+    <div class="stats">
+      <div><b id="finalScore">0 m</b><span>Jarak</span></div>
+      <div><b id="finalCombo">x0</b><span>Combo</span></div>
+      <div><b id="finalMissions">0</b><span>Misi</span></div>
+      <div><b id="finalLoc">-</b><span>Lokasi</span></div>
+    </div>
+    <div class="picker"></div>
+    <button id="againBtn" class="cta">MAIN SEMULA</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const cv = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+  const $ = id => document.getElementById(id);
+  const scoreEl = $('score'), spdEl = $('spd'), bestEl = $('best'), distEl = $('dist');
+
+  let W = 0, H = 0, DPR = 1;
+  let roadX = 0, roadW = 0, laneW = 0;
+  const LANES = 4;
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = W * DPR; cv.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    roadW = Math.min(W - 70, 440);
+    roadX = (W - roadW) / 2;
+    laneW = roadW / LANES;
+    if (player) {
+      player.y = H - 130;
+      player.x = Math.max(roadX + player.w / 2, Math.min(roadX + roadW - player.w / 2, player.x));
+    }
+    buildTextures();
+  }
+
+  // ---------- Lokasi ----------
+  // Lama sangat di 160 km/j → pindah ke lokasi seterusnya & laju kembali perlahan. Berkitar: Malaysia → Ladang → Thailand → ...
+  // Kenderaan: type = logik (car/lorry/bus), skin = rupa, label = nama dalam mesej.
+  const MY_CARS = ['#ff1744', '#2979ff', '#fafafa', '#00c853', '#d500f9', '#ff9100', '#00b8d4', '#ffd600', '#ff4081'];
+  const LOCATIONS = [
+    { id: 'my', name: 'Lebuhraya Malaysia', flag: '🇲🇾',
+      grass: ['#4caf50', '#45a54a'], tuft: 'rgba(25,95,35,.5)', road: ['#2c2e3a', '#43465a'], speck: 1,
+      shoulder: '#c9b38f', kerb: ['#111', '#fff'], lines: 'white',
+      scenery: [['🌴', 38], ['🏠', 12], ['🌳', 8], ['🌺', 12], ['🏡', 6], ['🕌', 5], ['🐄', 6], ['sign', 13]],
+      towns: ['KL', 'Ipoh', 'JB', 'Melaka', 'Kuantan', 'Seremban', 'Penang', 'Kota Bharu'], unit: 'km', signColor: '#1b5e20',
+      vehicles: [
+        { type: 'car', skin: 'car', label: 'kereta', w: 38, h: 70, rel: [0.45, 0.65], weight: 47, colors: MY_CARS },
+        { type: 'lorry', skin: 'lorry', label: 'lori', w: 44, h: 120, rel: [0.6, 0.7], weight: 8, colors: ['#f9a825'] },
+        { type: 'bus', skin: 'bus', label: 'bas', w: 44, h: 130, rel: [0.55, 0.55], weight: 7, colors: ['#00897b'] },
+      ],
+      animals: ['buaya', 'gajah', 'monyet', 'lembu', 'babi'], hole: 'pothole' },
+    { id: 'farm', name: 'Jalan Ladang Tanah Merah', flag: '🌴',
+      grass: ['#3d8b37', '#388233'], tuft: 'rgba(15,60,15,.55)', road: ['#8a3b1b', '#b9602f'], speck: 1.6,
+      shoulder: '#5e8f34', kerb: null, lines: 'ruts',
+      scenery: [['🌴', 60], ['🌳', 10], ['🛖', 8], ['🐄', 6], ['🚜', 4], ['sign', 12]],
+      towns: ['Estet Sawit', 'Ladang 7', 'Kebun Pak Mat', 'FELDA Jaya'], unit: 'km', signColor: '#5d4037',
+      vehicles: [
+        { type: 'car', skin: 'pickup', label: 'pikap', w: 36, h: 66, rel: [0.5, 0.65], weight: 30, colors: ['#eeeeee', '#455a64', '#8d6e63', '#1565c0'] },
+        { type: 'car', skin: 'dirtbike', label: 'motor cross', w: 18, h: 44, rel: [0.3, 0.42], weight: 25, colors: ['#ff6d00', '#64dd17', '#2979ff', '#e91e63'] },
+        { type: 'car', skin: 'tractor', label: 'traktor', w: 34, h: 56, rel: [0.75, 0.85], weight: 25, colors: ['#2e7d32', '#c62828', '#1565c0'] },
+        { type: 'lorry', skin: 'dozer', label: 'jentolak', w: 46, h: 84, rel: [0.85, 0.9], weight: 14, colors: ['#fbc02d'] },
+      ],
+      animals: ['lembu', 'kambing', 'ayam', 'babi hutan', 'monyet'], hole: 'mud' },
+    { id: 'th', name: 'Jalan Raya Thailand', flag: '🇹🇭',
+      grass: ['#66bb6a', '#5db462'], tuft: 'rgba(30,100,40,.45)', road: ['#33353b', '#4b4e57'], speck: 1,
+      shoulder: '#b4aea3', kerb: ['#c62828', '#fff'], lines: 'thai',
+      scenery: [['🌴', 30], ['🛕', 10], ['🏠', 12], ['🍜', 8], ['🌳', 10], ['🐘', 4], ['🛺', 4], ['sign', 14]],
+      towns: ['กรุงเทพฯ', 'เชียงใหม่', 'ภูเก็ต', 'หาดใหญ่', 'พัทยา', 'อยุธยา'], unit: 'กม.', signColor: '#0d47a1',
+      vehicles: [
+        { type: 'car', skin: 'car', label: 'kereta', w: 38, h: 70, rel: [0.45, 0.65], weight: 34, colors: ['#ff4081', '#76ff03', '#ffd600', '#fafafa', '#00b8d4'] },
+        { type: 'car', skin: 'tuktuk', label: 'tuk-tuk', w: 30, h: 50, rel: [0.6, 0.75], weight: 28, colors: ['#1e88e5', '#43a047', '#e53935', '#fdd835'] },
+        { type: 'lorry', skin: 'songthaew', label: 'songthaew', w: 40, h: 86, rel: [0.55, 0.65], weight: 12, colors: ['#e53935', '#1e88e5', '#fdd835'] },
+        { type: 'bus', skin: 'bus', label: 'bas', w: 44, h: 130, rel: [0.55, 0.55], weight: 6, colors: ['#ff6f00'] },
+        { type: 'lorry', skin: 'lorry', label: 'lori', w: 44, h: 120, rel: [0.6, 0.7], weight: 6, colors: ['#90a4ae'] },
+      ],
+      animals: ['gajah', 'anjing', 'lembu', 'ayam', 'pejalan kaki', 'pelancong', 'pejalan kaki'], hole: 'pothole' },
+  ];
+  const LOC_TIME = 20; // saat di 160 km/j sebelum pindah lokasi
+  let locIdx = 0;
+  const LOC = () => LOCATIONS[locIdx];
+
+  // ---------- Tekstur pra-lukis (dibina sekali bila saiz skrin / lokasi berubah → lebih licin) ----------
+  let tex = null;
+  function makeTile(w, h, paint) {
+    const c = document.createElement('canvas');
+    c.width = Math.ceil(w * DPR); c.height = Math.ceil(h * DPR);
+    const g = c.getContext('2d'); g.scale(DPR, DPR); paint(g, w, h);
+    const p = ctx.createPattern(c, 'repeat');
+    if (p.setTransform && window.DOMMatrix) p.setTransform(new DOMMatrix().scale(1 / DPR));
+    return p;
+  }
+  function buildTextures() {
+    tex = {};
+    const L = LOC();
+    // rumput: jalur dua tona + bintik + rumpun rumput kecil (tinggi 80 = sama dengan kitaran jalan)
+    tex.grass = makeTile(120, 80, (g, w, h) => {
+      g.fillStyle = L.grass[0]; g.fillRect(0, 0, w, 40);
+      g.fillStyle = L.grass[1]; g.fillRect(0, 40, w, 40);
+      for (let i = 0; i < 260; i++) {
+        g.fillStyle = Math.random() < 0.5 ? 'rgba(255,255,255,.07)' : 'rgba(0,60,0,.13)';
+        g.fillRect(Math.random() * w, Math.random() * h, 1.5, 1.5);
+      }
+      g.strokeStyle = L.tuft; g.lineWidth = 1.2; g.lineCap = 'round';
+      for (let i = 0; i < 14; i++) {
+        const x = Math.random() * w, y = 6 + Math.random() * (h - 6);
+        g.beginPath(); g.moveTo(x - 3, y); g.lineTo(x - 1.5, y - 6); g.moveTo(x, y); g.lineTo(x, y - 7);
+        g.moveTo(x + 3, y); g.lineTo(x + 1.5, y - 6); g.stroke();
+      }
+    });
+    // tar: bintik batu halus
+    tex.asphalt = makeTile(96, 80, (g, w, h) => {
+      for (let i = 0; i < 520 * L.speck; i++) {
+        g.fillStyle = Math.random() < 0.5 ? 'rgba(255,255,255,' + (0.03 + Math.random() * 0.05) + ')'
+                                          : 'rgba(0,0,0,' + (0.08 + Math.random() * 0.1) + ')';
+        g.fillRect(Math.random() * w, Math.random() * h, 1 + Math.random(), 1 + Math.random());
+      }
+    });
+    // bahu jalan: tanah laterit berbintik
+    tex.shoulder = makeTile(24, 40, (g, w, h) => {
+      g.fillStyle = L.shoulder; g.fillRect(0, 0, w, h);
+      for (let i = 0; i < 60; i++) {
+        g.fillStyle = Math.random() < 0.5 ? 'rgba(255,255,255,.14)' : 'rgba(90,60,30,.2)';
+        g.fillRect(Math.random() * w, Math.random() * h, 1.5, 1.5);
+      }
+    });
+    const ag = ctx.createLinearGradient(roadX, 0, roadX + roadW, 0);
+    ag.addColorStop(0, L.road[0]); ag.addColorStop(0.5, L.road[1]); ag.addColorStop(1, L.road[0]);
+    tex.asphaltGrad = ag;
+    // bayang di tepi jalan (rasa ada kedalaman)
+    const el = ctx.createLinearGradient(roadX, 0, roadX + 22, 0);
+    el.addColorStop(0, 'rgba(0,0,0,.35)'); el.addColorStop(1, 'rgba(0,0,0,0)');
+    const er = ctx.createLinearGradient(roadX + roadW, 0, roadX + roadW - 22, 0);
+    er.addColorStop(0, 'rgba(0,0,0,.35)'); er.addColorStop(1, 'rgba(0,0,0,0)');
+    tex.edgeL = el; tex.edgeR = er;
+    // vignette dilukis sekali ke kanvas sendiri
+    const v = document.createElement('canvas'); v.width = cv.width; v.height = cv.height;
+    const vc = v.getContext('2d'); vc.scale(DPR, DPR);
+    const vg = vc.createRadialGradient(W / 2, H * 0.55, Math.min(W, H) * 0.35, W / 2, H * 0.55, Math.max(W, H) * 0.8);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(40,10,70,.42)');
+    vc.fillStyle = vg; vc.fillRect(0, 0, W, H);
+    tex.vignette = v;
+  }
+
+  // ---------- Simpan rekod ----------
+  // rekod kini ikut SKOR (rekod jarak lama masih disimpan sebagai rujukan)
+  let best = 0, bestDist = 0;
+  try { best = +localStorage.getItem('selitBestScore') || 0; bestDist = +localStorage.getItem('motorRushBest') || 0; } catch (e) {}
+  bestEl.textContent = best;
+  if (best > 0) $('startBest').textContent = '🏆 Skor terbaik: ' + best;
+  function saveBest() {
+    try { localStorage.setItem('selitBestScore', best); localStorage.setItem('motorRushBest', bestDist); } catch (e) {}
+  }
+
+  // ---------- Bunyi (Web Audio, tiada fail luar) ----------
+  let actx = null, eng = null, muted = false;
+  try { muted = localStorage.getItem('motorRushMute') === '1'; } catch (e) {}
+  const muteBtn = $('muteBtn');
+  function showMute() { muteBtn.textContent = muted ? '🔇' : '🔊'; }
+  showMute();
+
+  function initAudio() {
+    if (!actx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      actx = new AC();
+      const master = actx.createGain(); master.gain.value = muted ? 0 : 0.45; master.connect(actx.destination);
+      // Enjin 4 silinder 4-lejang: 2 letupan setiap pusingan engkol → frekuensi letupan = RPM/60 × 2.
+      // Lapisan: letupan (sawtooth ×2 sedikit detune = licin), harmonik ke-2 (jeritan), order ke-0.5 (badan),
+      // hingar intake/ekzos, kemudian distorsi lembut + lowpass.
+      const shaper = actx.createWaveShaper();
+      const curve = new Float32Array(1024);
+      for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * 1.3); }
+      shaper.curve = curve;
+      const filt = actx.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = 1500; filt.Q.value = 1.5;
+      const body = actx.createBiquadFilter(); body.type = 'peaking'; body.frequency.value = 180; body.gain.value = 5; body.Q.value = 1;
+      const on = actx.createGain(); on.gain.value = 0;
+      const mix = actx.createGain(); mix.gain.value = 0.5;
+      mix.connect(shaper); shaper.connect(body); body.connect(filt); filt.connect(on); on.connect(master);
+      const osc = (type, gain) => {
+        const o = actx.createOscillator(); o.type = type;
+        const g = actx.createGain(); g.gain.value = gain;
+        o.connect(g); g.connect(mix); o.start(); return o;
+      };
+      const fire1 = osc('sawtooth', 0.4);
+      const fire2 = osc('triangle', 0.4);
+      const harm = osc('sine', 0.05);
+      const half = osc('triangle', 0.45);
+      // hingar intake
+      const nb = actx.createBuffer(1, actx.sampleRate * 2, actx.sampleRate), nd = nb.getChannelData(0);
+      for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+      const noise = actx.createBufferSource(); noise.buffer = nb; noise.loop = true;
+      const nf = actx.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 1200; nf.Q.value = 1.2;
+      const ng = actx.createGain(); ng.gain.value = 0.12;
+      noise.connect(nf); nf.connect(ng); ng.connect(mix); noise.start();
+      eng = { fire1, fire2, harm, half, nf, ng, filt, on, master, gear: 0, shiftUntil: 0 };
+    }
+    if (actx.state === 'suspended') actx.resume();
+  }
+
+  // Kotak gear 6 kelajuan: RPM = km/j × nisbah. Naik gear awal (sekitar 7500 RPM) supaya bunyi tak menjerit.
+  const GEAR_RATIO = [110, 85, 68, 55, 45, 38];
+  const REDLINE = 7500;
+  let gear = 0, rpm = 0;
+  function calcGear(kmh) {
+    let g = 0;
+    while (g < GEAR_RATIO.length - 1 && kmh * GEAR_RATIO[g] > REDLINE) g++;
+    return g;
+  }
+
+  function setEngine(spd, running) {
+    const kmh = spd / 5;
+    const g = calcGear(kmh);
+    const steering = input.left || input.right || input.pointerLeft || input.pointerRight;
+    // pulas minyak naikkan RPM; brek turunkan
+    const thr = typeof throttle === 'number' ? throttle : 0;
+    rpm = Math.max(2500, Math.min(kmh * GEAR_RATIO[g] + (steering ? 200 : 0) + (thr > 0 ? 700 : thr < 0 ? -500 : 0), 8200));
+    if (!eng) { gear = g; return; }
+    // kereta sport ada enjin sendiri; kuda langsung tiada enjin
+    if (vehicle === 'car') carEngine(running, running && g !== gear);
+    else if (carEng) carEngine(false, false);
+    const motorOn = running && vehicle === 'motor';
+    const t = actx.currentTime;
+    if (running && g !== gear) eng.shiftUntil = t + 0.09; // tukar gear: putus throttle sekejap
+    gear = g;
+    const f = rpm / 60 * 2;               // frekuensi letupan
+    const k = 0.12;                       // perubahan pitch lebih perlahan & lembut
+    eng.fire1.frequency.setTargetAtTime(f, t, k);
+    eng.fire2.frequency.setTargetAtTime(f * 1.004, t, k);
+    eng.harm.frequency.setTargetAtTime(f * 2, t, k);
+    eng.half.frequency.setTargetAtTime(f * 0.5, t, k);
+    eng.nf.frequency.setTargetAtTime(400 + rpm * 0.1, t, 0.15);
+    eng.ng.gain.setTargetAtTime(0.02 + rpm / 8000 * 0.03, t, 0.15);
+    eng.filt.frequency.setTargetAtTime(450 + rpm * 0.12, t, 0.15);
+    const shifting = t < eng.shiftUntil;
+    const vol = !motorOn ? 0 : shifting ? 0.05 : 0.085 + rpm / 8000 * 0.03;
+    eng.on.gain.setTargetAtTime(vol, t, motorOn ? 0.03 : 0.05);
+  }
+
+  // ---------- 🏎️ Enjin kereta sport: deruman V8 yang dalam + "letupan" ekzos bila tukar gear / lepas minyak ----------
+  let carEng = null, carLastThr = 0;
+  function carEngine(running, shifted) {
+    if (!actx) return;
+    if (!carEng) {
+      // GARANG: distorsi lebih kuat (serak), "rasp" ekzos sekitar 900 Hz, bass dalam,
+      // dan deruman V8 yang lebih tersekat-sekat ("brrap-brrap") — tapi kekuatan keseluruhan lebih perlahan
+      const out = actx.createGain(); out.gain.value = 0; out.connect(eng.master);
+      const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; lp.Q.value = 1.8;
+      const bass = actx.createBiquadFilter(); bass.type = 'peaking'; bass.frequency.value = 95; bass.gain.value = 9; bass.Q.value = 1;
+      const rasp = actx.createBiquadFilter(); rasp.type = 'peaking'; rasp.frequency.value = 900; rasp.gain.value = 6; rasp.Q.value = 1.4;
+      const ws = actx.createWaveShaper(); const c = new Float32Array(2048);
+      for (let i = 0; i < 2048; i++) { const x = i / 1024 - 1; c[i] = Math.tanh(x * 6) * 0.8 + Math.tanh(x * 1.5) * 0.2; }
+      ws.curve = c; ws.oversample = '2x';
+      const chop = actx.createGain(); chop.gain.value = 0.6; // "lope" V8 — deruman tak sekata
+      const mix = actx.createGain(); mix.gain.value = 0.5;
+      mix.connect(ws); ws.connect(bass); bass.connect(rasp); rasp.connect(lp); lp.connect(chop); chop.connect(out);
+      const mk = (type, gain) => {
+        const o = actx.createOscillator(); o.type = type;
+        const g = actx.createGain(); g.gain.value = gain; o.connect(g); g.connect(mix); o.start(); return o;
+      };
+      const a = mk('sawtooth', 0.5), b = mk('sawtooth', 0.45), sub = mk('square', 0.5);
+      // hingar ekzos (serak) yang ikut putaran enjin
+      const nz = actx.createBufferSource(); nz.buffer = getNoise(); nz.loop = true;
+      const nzf = actx.createBiquadFilter(); nzf.type = 'bandpass'; nzf.frequency.value = 700; nzf.Q.value = 0.9;
+      const nzg = actx.createGain(); nzg.gain.value = 0.18; nz.connect(nzf); nzf.connect(nzg); nzg.connect(mix); nz.start();
+      const lfo = actx.createOscillator(); lfo.type = 'triangle';
+      const lg = actx.createGain(); lg.gain.value = 0.4; lfo.connect(lg); lg.connect(chop.gain); lfo.start();
+      carEng = { out, lp, a, b, sub, lfo, nzf };
+    }
+    const t = actx.currentTime;
+    const r = rpm * 0.75;                 // putaran lebih rendah = bunyi lebih "garau"
+    const f = r / 60 * 2.6;
+    carEng.a.frequency.setTargetAtTime(f, t, 0.08);
+    carEng.b.frequency.setTargetAtTime(f * 1.008, t, 0.08);
+    carEng.sub.frequency.setTargetAtTime(f * 0.5, t, 0.08);
+    carEng.lfo.frequency.setTargetAtTime(f * 0.125, t, 0.08);
+    carEng.lp.frequency.setTargetAtTime(420 + r * 0.22, t, 0.1);
+    carEng.nzf.frequency.setTargetAtTime(400 + r * 0.12, t, 0.1);
+    // lebih perlahan daripada sebelum ni (dulu 0.12–0.18)
+    carEng.out.gain.setTargetAtTime(running ? 0.07 + rpm / 8000 * 0.035 : 0, t, running ? 0.05 : 0.08);
+    const thr = typeof throttle === 'number' ? throttle : 0;
+    if (running && (shifted || (carLastThr > 0 && thr <= 0))) exhaustPops();
+    carLastThr = thr;
+  }
+  function exhaustPops() { // "pap-pap-pap!" letupan kecil di ekzos
+    if (!actx || muted) return;
+    const t0 = actx.currentTime, n = 3 + Math.floor(Math.random() * 3);
+    let t = t0;
+    for (let i = 0; i < n; i++) {
+      t += 0.04 + Math.random() * 0.07;
+      const s = actx.createBufferSource(); s.buffer = getNoise();
+      const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 700 + Math.random() * 1300; f.Q.value = 1.2;
+      const g = actx.createGain(); g.gain.setValueAtTime(0.17 + Math.random() * 0.1, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+      s.connect(f); f.connect(g); g.connect(eng.master); s.start(t, Math.random()); s.stop(t + 0.06);
+    }
+  }
+
+  // ---------- 🐎 Kuda: tapak kaki berlari (4 rentak + jeda), ringkikan, dengusan ----------
+  function hoofSound(accent) {
+    if (!actx || muted) return;
+    const t = actx.currentTime;
+    const o = actx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(accent ? 150 : 130, t); o.frequency.exponentialRampToValueAtTime(55, t + 0.07);
+    const g = actx.createGain(); g.gain.setValueAtTime(accent ? 0.5 : 0.35, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+    o.connect(g); g.connect(eng.master); o.start(t); o.stop(t + 0.1);
+    // "tok" kuku pada tar (lebih basah bila hujan)
+    const wet = weather && weather.int > 0.3;
+    const s = actx.createBufferSource(); s.buffer = getNoise();
+    const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = wet ? 2600 : 1500; f.Q.value = wet ? 0.8 : 2;
+    const ng = actx.createGain(); ng.gain.setValueAtTime(wet ? 0.18 : 0.22, t); ng.gain.exponentialRampToValueAtTime(0.0001, t + (wet ? 0.08 : 0.035));
+    s.connect(f); f.connect(ng); ng.connect(eng.master); s.start(t, Math.random()); s.stop(t + 0.1);
+  }
+  function whinny() { // ringkikan "hiiiihihihi"
+    if (!actx || muted) return;
+    const t = actx.currentTime + 0.02, D = 1.1;
+    const o = actx.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(650, t); o.frequency.linearRampToValueAtTime(1150, t + 0.15);
+    o.frequency.linearRampToValueAtTime(950, t + 0.5); o.frequency.linearRampToValueAtTime(480, t + D);
+    const v = actx.createOscillator(); v.frequency.value = 13;
+    const vg = actx.createGain(); vg.gain.setValueAtTime(20, t); vg.gain.linearRampToValueAtTime(90, t + D); v.connect(vg); vg.connect(o.frequency);
+    const env = actx.createGain();
+    env.gain.setValueAtTime(0.0001, t); env.gain.exponentialRampToValueAtTime(0.16, t + 0.05);
+    env.gain.setValueAtTime(0.16, t + D * 0.6); env.gain.exponentialRampToValueAtTime(0.0001, t + D);
+    env.connect(eng.master);
+    [[1300, 2, 1], [2700, 4, 0.5]].forEach(([fr, q, a]) => {
+      const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = fr; f.Q.value = q;
+      const g = actx.createGain(); g.gain.value = a * 1.5; o.connect(f); f.connect(g); g.connect(env);
+    });
+    o.start(t); v.start(t); o.stop(t + D + 0.05); v.stop(t + D + 0.05);
+  }
+  function snort() { // dengusan bila brek
+    if (!actx || muted) return;
+    const t = actx.currentTime;
+    const s = actx.createBufferSource(); s.buffer = getNoise();
+    const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 700; f.Q.value = 1.5;
+    const g = actx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.35, t + 0.04);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    s.connect(f); f.connect(g); g.connect(eng.master); s.start(t, Math.random()); s.stop(t + 0.32);
+  }
+  // langkah kuda: 4 tapak (gallop) dalam setiap langkah, kemudian jeda; makin laju makin kerap
+  const GALLOP = [0, 0.1, 0.2, 0.3];
+  function updateHooves(dt) {
+    const stride = 1.5 + speed / 420;     // langkah sesaat
+    const p0 = hoofPhase, p1 = hoofPhase + dt * stride;
+    for (let n = Math.floor(p0); n <= Math.floor(p1); n++) {
+      GALLOP.forEach((b, i) => {
+        const tb = n + b;
+        if (tb > p0 && tb <= p1) {
+          hoofSound(i === 0 || i === 3);
+          if (i === 3) smoke.push({ x: player.x + (Math.random() - 0.5) * 14, y: player.y + player.fy + 24, vx: (Math.random() - 0.5) * 40,
+            r: 4, life: 0.5, max: 0.5, a: 0.4, col: weather && weather.int > 0.3 ? '170,190,220' : '205,175,125' }); // debu / percikan air
+        }
+      });
+    }
+    hoofPhase = p1;
+  }
+  // bunyi contoh bila pilih kenderaan
+  function previewSound(key) {
+    if (!actx || muted) return;
+    const t = actx.currentTime;
+    if (key === 'horse') { whinny(); return; }
+    const car = key === 'car';
+    const o = actx.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(car ? 55 : 110, t);
+    o.frequency.exponentialRampToValueAtTime(car ? 150 : 280, t + 0.35);
+    o.frequency.exponentialRampToValueAtTime(car ? 70 : 140, t + 0.8);
+    const ws = actx.createWaveShaper(); const c = new Float32Array(512);
+    for (let i = 0; i < 512; i++) { const x = i / 256 - 1; c[i] = Math.tanh(x * (car ? 6 : 1.3)); }
+    ws.curve = c;
+    const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = car ? 700 : 1100; f.Q.value = 2;
+    const g = actx.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(car ? 0.17 : 0.18, t + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.85);
+    o.connect(ws); ws.connect(f); f.connect(g); g.connect(eng.master); o.start(t); o.stop(t + 0.9);
+    if (car) setTimeout(exhaustPops, 650);
+  }
+
+  // Bunyi power-up
+  function getNoise() {
+    if (!crashNoise) {
+      crashNoise = actx.createBuffer(1, actx.sampleRate * 2, actx.sampleRate);
+      const d = crashNoise.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    return crashNoise;
+  }
+  function pickupSound() { // arpeggio naik "ting-ting-ting!"
+    if (!actx || muted) return;
+    const t = actx.currentTime;
+    [72, 76, 79, 84].forEach((n, i) => {
+      const o = actx.createOscillator(); o.type = 'triangle'; o.frequency.value = 440 * Math.pow(2, (n - 69) / 12);
+      const g = actx.createGain(), tt = t + i * 0.07;
+      g.gain.setValueAtTime(0.0001, tt); g.gain.exponentialRampToValueAtTime(0.25, tt + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, tt + 0.25);
+      o.connect(g); g.connect(eng.master); o.start(tt); o.stop(tt + 0.3);
+    });
+  }
+  function shootSound() { // "pew" perlahan
+    if (!actx || muted) return;
+    const t = actx.currentTime;
+    const o = actx.createOscillator(); o.type = 'square';
+    o.frequency.setValueAtTime(1400, t); o.frequency.exponentialRampToValueAtTime(300, t + 0.08);
+    const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 2500;
+    const g = actx.createGain(); g.gain.setValueAtTime(0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+    o.connect(f); f.connect(g); g.connect(eng.master); o.start(t); o.stop(t + 0.1);
+  }
+  // Pemandu marah: jeritan "WOIIIII!" disintesis terus (sintesis formant) — sama bunyi di semua peranti.
+  // Sumber suara (pita suara) → 3 penapis formant yang bergerak: "w/u" → "o" → "iiii"
+  function scold() {
+    if (!actx || muted) return;
+    const t = actx.currentTime + 0.32; // lepas hon pertama
+    const D = 0.95;                     // panjang jeritan
+    const out = eng.master;
+    // pita suara: sawtooth, pitch lelaki marah (naik tinggi, kemudian jatuh) + getaran kasar
+    const src = actx.createOscillator(); src.type = 'sawtooth';
+    src.frequency.setValueAtTime(150, t);
+    src.frequency.linearRampToValueAtTime(240, t + 0.18);
+    src.frequency.linearRampToValueAtTime(270, t + 0.45);
+    src.frequency.linearRampToValueAtTime(190, t + D);
+    const jit = actx.createOscillator(); jit.type = 'triangle'; jit.frequency.value = 29;
+    const jg = actx.createGain(); jg.gain.value = 9; jit.connect(jg); jg.connect(src.frequency);
+    // sedikit serak: distorsi lembut
+    const ws = actx.createWaveShaper(); const c = new Float32Array(512);
+    for (let i = 0; i < 512; i++) { const x = i / 256 - 1; c[i] = Math.tanh(x * 2.5); }
+    ws.curve = c;
+    src.connect(ws);
+    // hembusan nafas (hingar) supaya bunyi macam menjerit
+    const br = actx.createBufferSource(); br.buffer = getNoise(); br.loop = true;
+    const brg = actx.createGain(); brg.gain.value = 0.25; br.connect(brg);
+    // formant: [masa, F1, F2, F3] — w/u → o → i
+    const path = [[0, 320, 760, 2200], [0.1, 520, 880, 2400], [0.26, 540, 920, 2450], [0.42, 300, 2100, 2900], [D, 280, 2300, 3000]];
+    const env = actx.createGain();
+    env.gain.setValueAtTime(0.0001, t);
+    const VOL = 0.12; // kekuatan jeritan
+    env.gain.exponentialRampToValueAtTime(VOL, t + 0.06);
+    env.gain.setValueAtTime(VOL, t + D * 0.7);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + D);
+    env.connect(out);
+    [[1, 6, 1.0], [2, 10, 0.55], [3, 14, 0.3]].forEach(([k, q, amp]) => {
+      const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = q;
+      f.frequency.setValueAtTime(path[0][k], t);
+      for (const p of path.slice(1)) f.frequency.linearRampToValueAtTime(p[k], t + p[0]);
+      const g = actx.createGain(); g.gain.value = amp * 1.6;
+      ws.connect(f); brg.connect(f); f.connect(g); g.connect(env);
+    });
+    src.start(t); jit.start(t); br.start(t, Math.random());
+    src.stop(t + D + 0.05); jit.stop(t + D + 0.05); br.stop(t + D + 0.05);
+  }
+  // hon ikut saiz kenderaan: 'car' "PONNN-PON!", 'big' (lori/bas/jentolak) hon angin garau & panjang,
+  // 'small' (tuk-tuk, motor cross) "pip-pip!" nyaring
+  const HORNS = {
+    car:   { freqs: [415, 523], beats: [[0, 0.28], [0.34, 0.16]], vol: 0.13 },
+    big:   { freqs: [196, 247, 294], beats: [[0, 0.65]], vol: 0.15 },
+    small: { freqs: [740, 932], beats: [[0, 0.1], [0.16, 0.1], [0.32, 0.1]], vol: 0.09 },
+  };
+  function hornSound(kind) {
+    if (!actx || muted) return;
+    const H0 = HORNS[kind] || HORNS.car;
+    const t = actx.currentTime;
+    H0.beats.forEach(([d, len]) => {
+      const g = actx.createGain();
+      g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(H0.vol, t + d + 0.02);
+      g.gain.setValueAtTime(H0.vol, t + d + len - 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + d + len);
+      const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 2200;
+      f.connect(g); g.connect(eng.master);
+      H0.freqs.forEach(fr => {
+        const o = actx.createOscillator(); o.type = 'square'; o.frequency.value = fr;
+        o.connect(f); o.start(t + d); o.stop(t + d + len + 0.02);
+      });
+    });
+  }
+  function holeSound() { // "GEDEBUK" + gegaran suspensi
+    if (!actx || muted) return;
+    const t = actx.currentTime;
+    [0, 0.09].forEach((d, i) => {
+      const o = actx.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(i ? 120 : 95, t + d); o.frequency.exponentialRampToValueAtTime(38, t + d + 0.18);
+      const g = actx.createGain(); g.gain.setValueAtTime(i ? 0.35 : 0.55, t + d); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.22);
+      o.connect(g); g.connect(eng.master); o.start(t + d); o.stop(t + d + 0.25);
+    });
+    const s = actx.createBufferSource(); s.buffer = getNoise();
+    const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900;
+    const ng = actx.createGain(); ng.gain.setValueAtTime(0.25, t); ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    s.connect(f); f.connect(ng); ng.connect(eng.master); s.start(t, Math.random()); s.stop(t + 0.32);
+  }
+  function whooshSound() { // bunyi "wuuuussh" semasa bertukar lokasi
+    if (!actx || muted) return;
+    const t = actx.currentTime;
+    const s = actx.createBufferSource(); s.buffer = getNoise(); s.loop = true;
+    const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.2;
+    f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(3000, t + 0.6); f.frequency.exponentialRampToValueAtTime(400, t + 1.2);
+    const g = actx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.3, t + 0.5);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.2);
+    s.connect(f); f.connect(g); g.connect(eng.master); s.start(t, Math.random()); s.stop(t + 1.25);
+  }
+  function missionSound(done) { // misi baru: "ding-dong"; misi selesai: fanfara naik
+    if (!actx || muted) return;
+    const t = actx.currentTime;
+    const notes = done ? [72, 76, 79, 84, 88] : [79, 84];
+    notes.forEach((n, i) => {
+      const tt = t + i * (done ? 0.09 : 0.14);
+      [['triangle', 0.18], ['square', 0.04]].forEach(([type, v]) => {
+        const o = actx.createOscillator(); o.type = type; o.frequency.value = 440 * Math.pow(2, (n - 69) / 12);
+        const g = actx.createGain();
+        g.gain.setValueAtTime(0.0001, tt); g.gain.exponentialRampToValueAtTime(v, tt + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.0001, tt + (done && i === notes.length - 1 ? 0.6 : 0.25));
+        o.connect(g); g.connect(eng.master); o.start(tt); o.stop(tt + 0.65);
+      });
+    });
+  }
+  function selitSound(combo) { // "wusshh" + "ting" yang makin tinggi ikut combo
+    if (!actx || muted) return;
+    const t = actx.currentTime;
+    const s = actx.createBufferSource(); s.buffer = getNoise();
+    const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.5;
+    f.frequency.setValueAtTime(600, t); f.frequency.exponentialRampToValueAtTime(3500, t + 0.18);
+    const g = actx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.18, t + 0.06);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+    s.connect(f); f.connect(g); g.connect(eng.master); s.start(t, Math.random()); s.stop(t + 0.25);
+    const o = actx.createOscillator(); o.type = 'triangle';
+    o.frequency.value = 880 * Math.pow(2, (combo - 1) * 2 / 12);
+    const og = actx.createGain(); og.gain.setValueAtTime(0.0001, t + 0.05); og.gain.exponentialRampToValueAtTime(0.12, t + 0.07);
+    og.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+    o.connect(og); og.connect(eng.master); o.start(t + 0.05); o.stop(t + 0.4);
+  }
+  function brakeSound() { // decit brek pendek
+    if (!actx || muted) return;
+    const t = actx.currentTime;
+    const o = actx.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(1300, t); o.frequency.exponentialRampToValueAtTime(950, t + 0.35);
+    const l = actx.createOscillator(); l.frequency.value = 30;
+    const lg = actx.createGain(); lg.gain.value = 40; l.connect(lg); lg.connect(o.frequency);
+    const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2000; f.Q.value = 3;
+    const g = actx.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.06, t + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.38);
+    o.connect(f); f.connect(g); g.connect(eng.master);
+    o.start(t); l.start(t); o.stop(t + 0.4); l.stop(t + 0.4);
+  }
+  function bumpSound() { // "dush" + bunyi besi bergesel
+    if (!actx || muted) return;
+    const t = actx.currentTime;
+    const o = actx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(160, t); o.frequency.exponentialRampToValueAtTime(60, t + 0.12);
+    const g = actx.createGain(); g.gain.setValueAtTime(0.45, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
+    o.connect(g); g.connect(eng.master); o.start(t); o.stop(t + 0.17);
+    const s = actx.createBufferSource(); s.buffer = getNoise();
+    const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2800; f.Q.value = 3;
+    const ng = actx.createGain(); ng.gain.setValueAtTime(0.25, t); ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+    s.connect(f); f.connect(ng); ng.connect(eng.master); s.start(t, Math.random()); s.stop(t + 0.22);
+  }
+  function boomSound() { // letupan kecil bila musuh hancur
+    if (!actx || muted) return;
+    const t = actx.currentTime;
+    const s = actx.createBufferSource(); s.buffer = getNoise();
+    const f = actx.createBiquadFilter(); f.type = 'lowpass';
+    f.frequency.setValueAtTime(2500, t); f.frequency.exponentialRampToValueAtTime(200, t + 0.35);
+    const g = actx.createGain(); g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+    s.connect(f); f.connect(g); g.connect(eng.master); s.start(t, Math.random()); s.stop(t + 0.45);
+    const o = actx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.25);
+    const og = actx.createGain(); og.gain.setValueAtTime(0.5, t); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    o.connect(og); og.connect(eng.master); o.start(t); o.stop(t + 0.32);
+  }
+
+  // Bunyi haiwan (disintesis): lembu "Moooo", gajah menjerit, monyet "uu-uu-aa-aa", buaya menderam, babi "oink oink"
+  function animalVoice(name) {
+    if (!actx || muted) return;
+    const t = actx.currentTime + 0.02, out = eng.master;
+    // satu "panggilan": osilator dengan lengkung pitch, penapis, vibrato & kekasaran (AM) pilihan
+    const call = (t0, dur, type, pts, vol, ftype, ffreq, q, vib, am) => {
+      const o = actx.createOscillator(); o.type = type;
+      o.frequency.setValueAtTime(pts[0][1], t0);
+      for (const [d, f] of pts.slice(1)) o.frequency.linearRampToValueAtTime(f, t0 + d);
+      if (vib) {
+        const l = actx.createOscillator(); l.frequency.value = vib[0];
+        const lg = actx.createGain(); lg.gain.value = vib[1];
+        l.connect(lg); lg.connect(o.frequency); l.start(t0); l.stop(t0 + dur + 0.05);
+      }
+      const f = actx.createBiquadFilter(); f.type = ftype; f.frequency.value = ffreq; f.Q.value = q;
+      const g = actx.createGain();
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(vol, t0 + Math.min(0.08, dur * 0.25));
+      g.gain.setValueAtTime(vol, t0 + dur * 0.7);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(f); f.connect(g);
+      if (am) {
+        const a = actx.createGain(); a.gain.value = 0.6;
+        const l = actx.createOscillator(); l.frequency.value = am;
+        const lg = actx.createGain(); lg.gain.value = 0.4;
+        l.connect(lg); lg.connect(a.gain); l.start(t0); l.stop(t0 + dur + 0.05);
+        g.connect(a); a.connect(out);
+      } else g.connect(out);
+      o.start(t0); o.stop(t0 + dur + 0.05);
+      return f;
+    };
+    if (name === 'lembu') {
+      // "Mmm-OOOO-oo": pitch rendah, penapis terbuka macam mulut terbuka
+      const f = call(t, 1.4, 'sawtooth', [[0, 105], [0.3, 128], [1.0, 112], [1.4, 92]], 0.45, 'lowpass', 400, 6, [5, 3]);
+      f.frequency.setValueAtTime(320, t); f.frequency.linearRampToValueAtTime(950, t + 0.45); f.frequency.linearRampToValueAtTime(550, t + 1.4);
+    } else if (name === 'gajah') {
+      // jeritan belalai: tinggi, kasar, bergetar
+      call(t, 1.0, 'sawtooth', [[0, 380], [0.15, 720], [0.6, 670], [1.0, 470]], 0.22, 'bandpass', 1400, 1, [9, 25]);
+      call(t, 1.0, 'square', [[0, 570], [0.15, 1080], [0.6, 1000], [1.0, 700]], 0.07, 'bandpass', 2200, 1, [9, 35]);
+    } else if (name === 'monyet') {
+      // "uu-uu-AA-AA"
+      [[0, 'u'], [0.17, 'u'], [0.36, 'a'], [0.55, 'a'], [0.74, 'a']].forEach(([d, v]) => {
+        if (v === 'u') call(t + d, 0.13, 'square', [[0, 460], [0.13, 640]], 0.12, 'lowpass', 1100, 2);
+        else call(t + d, 0.15, 'square', [[0, 720], [0.06, 1100], [0.15, 820]], 0.12, 'lowpass', 2300, 2);
+      });
+    } else if (name === 'buaya') {
+      // deraman rendah + desis
+      call(t, 1.1, 'sawtooth', [[0, 62], [0.5, 54], [1.1, 46]], 0.55, 'lowpass', 300, 3, null, 23);
+      const s = actx.createBufferSource(); s.buffer = getNoise();
+      const hf = actx.createBiquadFilter(); hf.type = 'highpass'; hf.frequency.value = 3000;
+      const hg = actx.createGain();
+      hg.gain.setValueAtTime(0.0001, t + 0.5); hg.gain.exponentialRampToValueAtTime(0.1, t + 0.6);
+      hg.gain.exponentialRampToValueAtTime(0.0001, t + 1.3);
+      s.connect(hf); hf.connect(hg); hg.connect(out); s.start(t + 0.5, Math.random()); s.stop(t + 1.35);
+    } else if (name === 'kambing') {
+      // "mbeeeek" bergetar
+      call(t, 0.8, 'sawtooth', [[0, 420], [0.1, 520], [0.8, 460]], 0.28, 'bandpass', 1100, 2, [9, 40]);
+    } else if (name === 'ayam') {
+      // "kok-kok-kokkk!"
+      [0, 0.16, 0.32].forEach((d, i) => call(t + d, i === 2 ? 0.28 : 0.12, 'square', [[0, 700], [0.05, 950], [0.12, 650]], 0.12, 'bandpass', 1400, 3));
+    } else if (name === 'anjing') {
+      // "woof! woof!"
+      [0, 0.3].forEach(d => call(t + d, 0.18, 'sawtooth', [[0, 320], [0.04, 480], [0.18, 260]], 0.35, 'bandpass', 900, 2, null, 30));
+    } else if (name === 'babi' || name === 'babi hutan') {
+      // "oink oink": dengusan sengau, dua kali
+      [0, 0.3].forEach(d => call(t + d, 0.2, 'sawtooth', [[0, 170], [0.06, 260], [0.2, 150]], 0.4, 'bandpass', 1000, 3, null, 45));
+    }
+  }
+
+  // Bunyi hujan (hingar berterusan) & guruh
+  let rainNode = null;
+  function setRain(level) {
+    if (!actx || !eng) return;
+    if (!rainNode) {
+      const s = actx.createBufferSource(); s.buffer = getNoise(); s.loop = true;
+      const hp = actx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 700;
+      const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 6500;
+      const g = actx.createGain(); g.gain.value = 0;
+      s.connect(hp); hp.connect(lp); lp.connect(g); g.connect(eng.master); s.start();
+      rainNode = { g, last: -1 };
+    }
+    if (Math.abs(level - rainNode.last) > 0.002) { // elak jadual automasi setiap frame tanpa perlu
+      rainNode.g.gain.setTargetAtTime(level, actx.currentTime, 0.3);
+      rainNode.last = level;
+    }
+  }
+  function thunderSound(delay, close) {
+    if (!actx || muted) return;
+    const t = actx.currentTime + delay, out = eng.master;
+    if (close) { // petir dekat: "KRAK!" tajam dulu
+      const c = actx.createBufferSource(); c.buffer = getNoise();
+      const cf = actx.createBiquadFilter(); cf.type = 'highpass'; cf.frequency.value = 1200;
+      const cg = actx.createGain(); cg.gain.setValueAtTime(0.6, t); cg.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      c.connect(cf); cf.connect(cg); cg.connect(out); c.start(t, Math.random()); c.stop(t + 0.4);
+    }
+    // guruh berdentum panjang
+    const s = actx.createBufferSource(); s.buffer = getNoise(); s.loop = true;
+    const f = actx.createBiquadFilter(); f.type = 'lowpass';
+    f.frequency.setValueAtTime(close ? 600 : 300, t); f.frequency.exponentialRampToValueAtTime(80, t + 3);
+    const g = actx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(close ? 1.2 : 0.8, t + 0.12);
+    g.gain.exponentialRampToValueAtTime(0.35, t + 1.0);
+    g.gain.exponentialRampToValueAtTime(0.5, t + 1.4);   // gelombang kedua
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 3.4);
+    s.connect(f); f.connect(g); g.connect(out); s.start(t, Math.random()); s.stop(t + 3.5);
+  }
+
+  // Bunyi eksiden: brek berdecit → kaca pecah
+  let crashNoise = null;
+  function crashSound() {
+    if (!actx || muted) return;
+    const t0 = actx.currentTime, out = eng.master;
+    if (!crashNoise) {
+      crashNoise = actx.createBuffer(1, actx.sampleRate * 2, actx.sampleRate);
+      const d = crashNoise.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const env = (g, t, peak, attack, end) => {
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(peak, t + attack);
+      g.gain.exponentialRampToValueAtTime(0.0001, end);
+    };
+    const noise = (t, dur, type, freq, q, peak, attack = 0.005) => {
+      const s = actx.createBufferSource(); s.buffer = crashNoise;
+      const f = actx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+      const g = actx.createGain(); env(g, t, peak, attack, t + dur);
+      s.connect(f); f.connect(g); g.connect(out);
+      s.start(t, Math.random() * 1.2); s.stop(t + dur + 0.05);
+      return f;
+    };
+
+    // 1. BREK: tayar berdecit "skreeeech" (~0.7 saat), nada bergetar tak sekata + desis geseran
+    const BR = 0.7;
+    const sqF = actx.createBiquadFilter(); sqF.type = 'bandpass'; sqF.frequency.value = 2000; sqF.Q.value = 2.5;
+    const sqG = actx.createGain();
+    sqG.gain.setValueAtTime(0.0001, t0);
+    sqG.gain.exponentialRampToValueAtTime(0.32, t0 + 0.03);
+    sqG.gain.setValueAtTime(0.3, t0 + BR - 0.15);
+    sqG.gain.exponentialRampToValueAtTime(0.0001, t0 + BR);
+    sqF.connect(sqG); sqG.connect(out);
+    [[1050, 'sawtooth', 1], [1580, 'square', 0.45]].forEach(([f, type, v]) => {
+      const o = actx.createOscillator(); o.type = type;
+      o.frequency.setValueAtTime(f, t0); o.frequency.exponentialRampToValueAtTime(f * 0.82, t0 + BR);
+      const g = actx.createGain(); g.gain.value = v;
+      o.connect(g); g.connect(sqF); o.start(t0); o.stop(t0 + BR + 0.05);
+      // getaran tayar: dua LFO berlainan kelajuan supaya bunyi tak licin sempurna
+      [[31, f * 0.04], [9, f * 0.025]].forEach(([lf, depth]) => {
+        const l = actx.createOscillator(); l.frequency.value = lf * (0.9 + Math.random() * 0.2);
+        const lg = actx.createGain(); lg.gain.value = depth;
+        l.connect(lg); lg.connect(o.frequency); l.start(t0); l.stop(t0 + BR + 0.05);
+      });
+    });
+    noise(t0, BR, 'bandpass', 3200, 1.2, 0.1, 0.03);
+
+    // 2. KACA PECAH: retakan tajam, kemudian hujan serpihan kaca
+    const tg = t0 + BR - 0.12;
+    noise(tg, 0.07, 'highpass', 1800, 0.7, 0.9, 0.001);   // "KRASH" awal
+    noise(tg, 0.9, 'highpass', 5500, 0.7, 0.28, 0.004);   // desir kaca berderai
+    for (let i = 0; i < 45; i++) {
+      // lebih banyak serpihan di awal, makin jarang di hujung
+      const tt = tg + 0.01 + Math.pow(Math.random(), 1.8) * 1.1;
+      const f = 2200 + Math.random() * 6500, dur = 0.03 + Math.random() * 0.14;
+      const peak = (0.04 + Math.random() * 0.08) * (1 - (tt - tg) / 1.3);
+      const g = actx.createGain(); env(g, tt, Math.max(0.005, peak), 0.001, tt + dur);
+      g.connect(out);
+      // dua nada tak harmonik → bunyi "ting" kaca
+      [1, 2.76].forEach((m, k) => {
+        const o = actx.createOscillator(); o.type = 'sine'; o.frequency.value = f * m;
+        if (k) { const kg = actx.createGain(); kg.gain.value = 0.4; o.connect(kg); kg.connect(g); } else o.connect(g);
+        o.start(tt); o.stop(tt + dur + 0.02);
+      });
+      if (i % 3 === 0) noise(tt, 0.025, 'highpass', 4000, 0.7, peak * 1.5, 0.001); // serpihan kecil
+    }
+  }
+
+  // ---------- Muzik latar (dijana terus, tiada fail) ----------
+  // 'game' = ROCK RANCAK: E minor, ~150 BPM, power chord gitar distorsi, bass, dram rock, solo gitar.
+  // 'over' = SEDIH KELAKAR: trombon "wah-wah-waaah", tuba oom-pah, kazoo & wisel gelongsor (72 BPM).
+  const music = { out: null, noise: null, timer: null, next: 0, step: 0, on: false, song: 'game' };
+  let overMusicTimer = null;
+  const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+
+  // rantaian amp gitar: distorsi → buang bass berlebihan → tonjol mid → "kabinet" lowpass
+  function distChain(drive, cab, level) {
+    const inp = actx.createGain();
+    const ws = actx.createWaveShaper();
+    const c = new Float32Array(2048);
+    for (let i = 0; i < c.length; i++) { const x = i / 1024 - 1; c[i] = Math.tanh(x * drive); }
+    ws.curve = c; ws.oversample = '4x';
+    const hp = actx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 90;
+    const mid = actx.createBiquadFilter(); mid.type = 'peaking'; mid.frequency.value = 1200; mid.gain.value = 4;
+    const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = cab; lp.Q.value = 0.8;
+    const lvl = actx.createGain(); lvl.gain.value = level;
+    inp.connect(ws); ws.connect(hp); hp.connect(mid); mid.connect(lp); lp.connect(lvl); lvl.connect(music.out);
+    return { inp, lvl };
+  }
+  function initMusic() {
+    if (music.out || !actx) return;
+    music.out = actx.createGain(); music.out.gain.value = 0; music.out.connect(eng.master);
+    const nb = actx.createBuffer(1, actx.sampleRate * 3, actx.sampleRate), d = nb.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    music.noise = nb;
+    // gema (reverb) buatan untuk rasa "dewan konsert"
+    const len = Math.floor(actx.sampleRate * 2.4), ir = actx.createBuffer(2, len, actx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const id = ir.getChannelData(ch);
+      for (let i = 0; i < len; i++) id[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+    }
+    music.verb = actx.createConvolver(); music.verb.buffer = ir;
+    const vg = actx.createGain(); vg.gain.value = 0.3; music.verb.connect(vg); vg.connect(music.out);
+    music.wet = actx.createGain(); music.wet.connect(music.out); music.wet.connect(music.verb); // kering + gema
+    music.rhythm = distChain(6, 3200, 0.16);   // gitar ritma
+    music.lead = distChain(10, 4300, 0.12);    // gitar solo
+    music.lead.lvl.connect(music.verb);
+  }
+  function tone(type, freq, t, dur, vol, cutoff, dest) {
+    const o = actx.createOscillator(); o.type = type; o.frequency.value = freq;
+    const g = actx.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    let node = o;
+    if (cutoff) { const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = cutoff; o.connect(f); node = f; }
+    node.connect(g); g.connect(dest || music.out); o.start(t); o.stop(t + dur + 0.05);
+  }
+  function hit(t, ftype, freq, vol, dur, dest) {
+    const s = actx.createBufferSource(); s.buffer = music.noise;
+    const f = actx.createBiquadFilter(); f.type = ftype; f.frequency.value = freq;
+    const g = actx.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(dest || music.out); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
+  }
+  // satu petikan gitar (beberapa nota serentak), setiap nota 2 osilator sedikit detune.
+  // bend = mula berapa semiton di bawah lalu "tarik" naik; vib = kedalaman vibrato
+  function gtr(notes, t, dur, vol, dest, bend = 0, vib = 0) {
+    for (const n of notes) for (const det of [-0.08, 0.08]) {
+      const o = actx.createOscillator(); o.type = 'sawtooth';
+      const f = mtof(n + det);
+      if (bend) {
+        o.frequency.setValueAtTime(f * Math.pow(2, -bend / 12), t);
+        o.frequency.exponentialRampToValueAtTime(f, t + 0.1);
+      } else o.frequency.value = f;
+      if (vib) {
+        const l = actx.createOscillator(); l.frequency.value = 5.5;
+        const lg = actx.createGain();
+        lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(f * vib, t + Math.min(dur * 0.6, 0.5));
+        l.connect(lg); lg.connect(o.frequency); l.start(t); l.stop(t + dur + 0.1);
+      }
+      const g = actx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(vol * 0.6, t + Math.min(0.3, dur * 0.5));
+      g.gain.setValueAtTime(vol * 0.6, t + dur * 0.85);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + 0.05);
+    }
+  }
+  function snare(t, v, dest) { hit(t, 'bandpass', 1800, v, 0.2, dest); tone('triangle', 190, t, 0.09, v * 0.5, 0, dest); }
+  function kick(t, v = 0.7) {
+    const o = actx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.18);
+    const g = actx.createGain(); g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+    o.connect(g); g.connect(music.out); o.start(t); o.stop(t + 0.3);
+  }
+  // ===== SEDIH KELAKAR (Game Over), 72 BPM =====
+  // Mula dengan trombon sedih "wah... wah... wah... waaaaah" + "ba-dum-tss",
+  // lepas tu berulang: perarakan sedih gaya kartun — tuba "oom", kord "pah", melodi kazoo terhuyung-hayang,
+  // dan wisel gelongsor jatuh "fiuuuu" di hujung frasa.
+  const OVER_INTRO_END = 32, OVER_LOOP_END = 96;          // langkah 0–31 intro, 32–95 berulang
+  const SAD_TROMBONE = [[0, 58, 3], [4, 57, 3], [8, 56, 3], [12, 55, 13]];
+  const SAD_TUBA = [[45, 52], [38, 45], [40, 47], [45, 52]];                 // Am, Dm, E, Am (akar, kelima)
+  const SAD_CHORDS = [[57, 60, 64], [57, 62, 65], [56, 59, 62, 64], [57, 60, 64]];
+  const SAD_KAZOO = [ // [bar, langkah, nota, panjang]
+    [0, 0, 69, 4], [0, 4, 72, 2], [0, 6, 71, 2], [0, 8, 69, 6], [0, 14, 68, 2],
+    [1, 0, 65, 4], [1, 4, 69, 2], [1, 6, 67, 2], [1, 8, 65, 8],
+    [2, 0, 64, 3], [2, 3, 65, 1], [2, 4, 68, 4], [2, 8, 71, 4], [2, 12, 74, 4],
+    [3, 0, 72, 2], [3, 2, 71, 2], [3, 4, 69, 4], [3, 8, 64, 4],
+  ];
+  // trombon: sawtooth + penapis "wah" yang terbuka-tutup; nota panjang bergoyang (vibrato lebar)
+  function trombone(n, t, dur, wobble) {
+    const f = mtof(n);
+    const o = actx.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f * 0.97, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.06);
+    if (wobble) {
+      const l = actx.createOscillator(); l.frequency.value = 6;
+      const lg = actx.createGain(); lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(f * 0.05, t + 0.6);
+      l.connect(lg); lg.connect(o.frequency); l.start(t); l.stop(t + dur + 0.1);
+    }
+    const flt = actx.createBiquadFilter(); flt.type = 'lowpass'; flt.Q.value = 5;
+    flt.frequency.setValueAtTime(300, t); flt.frequency.linearRampToValueAtTime(1700, t + 0.12);
+    flt.frequency.linearRampToValueAtTime(600, t + dur);
+    const g = actx.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.3, t + 0.05);
+    g.gain.setValueAtTime(0.3, t + dur * 0.8); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(flt); flt.connect(g); g.connect(music.wet); o.start(t); o.stop(t + dur + 0.05);
+  }
+  // kazoo: square sengau (bandpass) dengan vibrato laju & gelongsor naik dari bawah
+  function kazoo(n, t, dur) {
+    const f = mtof(n);
+    const o = actx.createOscillator(); o.type = 'square';
+    o.frequency.setValueAtTime(f * 0.94, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.07);
+    const l = actx.createOscillator(); l.frequency.value = 7;
+    const lg = actx.createGain(); lg.gain.value = f * 0.018; l.connect(lg); lg.connect(o.frequency);
+    const bp = actx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1300; bp.Q.value = 1.6;
+    const g = actx.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.16, t + 0.03);
+    g.gain.setValueAtTime(0.16, t + dur * 0.75); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(bp); bp.connect(g); g.connect(music.out);
+    o.start(t); l.start(t); o.stop(t + dur + 0.05); l.stop(t + dur + 0.05);
+  }
+  // wisel gelongsor jatuh "fiuuuuu"
+  function slideWhistle(t, dur) {
+    const o = actx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(1900, t); o.frequency.exponentialRampToValueAtTime(380, t + dur);
+    const g = actx.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.14, t + 0.04);
+    g.gain.setValueAtTime(0.14, t + dur * 0.8); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(music.out); o.start(t); o.stop(t + dur + 0.05);
+  }
+  function scheduleOver(s, t, sd) {
+    if (s < OVER_INTRO_END) {
+      // trombon sedih
+      for (const [st, n, len] of SAD_TROMBONE) if (st === s) trombone(n, t, sd * len, len > 4);
+      // "ba-dum-tss!"
+      if (s === 27) snare(t, 0.3);
+      if (s === 28) kick(t, 0.6);
+      if (s === 29) hit(t, 'highpass', 6000, 0.25, 0.9);
+      return;
+    }
+    const ls = s - OVER_INTRO_END, bar = Math.floor(ls / 16) % 4, b = ls % 16;
+    const [root, fifth] = SAD_TUBA[bar];
+    // tuba "oom" (ketukan 1 & 3) + kick lembut
+    if (b === 0 || b === 8) {
+      tone('triangle', mtof(b === 0 ? root : fifth), t, sd * 3, 0.42, 500);
+      kick(t, 0.35);
+    }
+    // kord "pah" pendek (ketukan 2 & 4) + snare berus perlahan
+    if (b === 4 || b === 12) {
+      for (const n of SAD_CHORDS[bar]) tone('triangle', mtof(n), t, sd * 1.2, 0.05, 2500);
+      hit(t, 'bandpass', 3000, 0.07, 0.08);
+    }
+    // melodi kazoo
+    for (const [mb, ms, n, len] of SAD_KAZOO) if (mb === bar && ms === b) kazoo(n, t, sd * len * 0.95);
+    // hujung frasa: wisel jatuh
+    if (bar === 3 && b === 12) slideWhistle(t, sd * 3.5);
+  }
+
+  // ===== ROCK RANCAK (masa main): Em – C – G – D =====
+  const ROCK_ROOTS = [40, 48, 43, 50];
+  const ROCK_LEAD = [ // solo gitar pada separuh kedua kitaran
+    [0, 0, 71, 4], [0, 4, 74, 2], [0, 6, 76, 6], [0, 12, 74, 4],
+    [1, 0, 72, 4], [1, 4, 71, 2], [1, 6, 67, 6], [1, 12, 69, 4],
+    [2, 0, 71, 3], [2, 3, 74, 3], [2, 6, 79, 6], [2, 12, 78, 4],
+    [3, 0, 76, 6], [3, 6, 74, 4], [3, 10, 78, 6],
+  ];
+  function scheduleStep(s, t, sd) {
+    const bar = Math.floor(s / 16) % 4, b = s % 16, cycle = Math.floor(s / 64);
+    const r = ROCK_ROOTS[bar], pc = [r, r + 7, r + 12]; // power chord
+    // dram rock
+    if (b === 0 && bar === 0) hit(t, 'highpass', 5000, 0.3, 1.4);  // cymbal crash
+    if (b === 0 || b === 6 || b === 8 || b === 10) kick(t, 0.9);
+    if (b === 4 || b === 12) snare(t, 0.55);
+    if (bar === 3 && b >= 13) snare(t, 0.35);                      // fill hujung
+    if (b % 2 === 0) hit(t, 'highpass', 7500, b % 4 === 0 ? 0.09 : 0.05, 0.05);
+    // bass ikut 8th
+    if (b % 2 === 0) tone('sawtooth', mtof(r - 12), t, sd * 1.8, 0.22, 700);
+    // gitar ritma: power chord berbunyi + "chug" palm-mute
+    if (b === 0 || b === 6) gtr(pc, t, sd * 2, 0.3, music.rhythm.inp);
+    else if (b === 10) gtr(pc, t, sd * 4, 0.3, music.rhythm.inp);
+    else if (b === 2 || b === 4 || b === 8 || b === 14) gtr([r, r + 7], t, sd * 0.8, 0.15, music.rhythm.inp);
+    // solo gitar
+    if (cycle === 1) {
+      for (const [mb, ms, n, len] of ROCK_LEAD) {
+        if (mb === bar && ms === b) gtr([n], t, sd * len, 0.3, music.lead.inp, len >= 6 ? 2 : 0, 0.012);
+      }
+    }
+  }
+  function startMusic(song = 'game') {
+    if (!actx) return;
+    initMusic();
+    const now = actx.currentTime;
+    music.song = song;
+    music.step = 0; music.next = now + 0.05; music.on = true;
+    music.out.gain.cancelScheduledValues(now);
+    // masa main muzik diperlahankan supaya bunyi enjin jelas; masa Game Over (tiada enjin) lebih kuat sikit
+    music.out.gain.setTargetAtTime(song === 'game' ? 0.28 : 0.42, now, song === 'game' ? 0.05 : 0.6);
+    clearInterval(music.timer);
+    music.timer = setInterval(() => {
+      if (!music.on) return;
+      // rock: tempo naik sedikit ikut kelajuan motor (148 → 160 BPM); sedih kelakar: 72 BPM
+      const bpm = music.song === 'over' ? 72 : 148 + Math.min(12, Math.max(0, (speed - 300) / 500 * 12));
+      const play = music.song === 'over' ? scheduleOver : scheduleStep;
+      const sd = 60 / bpm / 4;
+      if (music.next < actx.currentTime - 0.05) music.next = actx.currentTime + 0.02; // lepas tab disembunyi
+      while (music.next < actx.currentTime + 0.15) {
+        play(music.step, music.next, sd);
+        music.next += sd; music.step++;
+        // rock berulang dari awal; lagu sedih langkau intro trombon bila berulang
+        if (music.song === 'over' ? music.step >= OVER_LOOP_END : music.step >= 128) {
+          music.step = music.song === 'over' ? OVER_INTRO_END : 0;
+        }
+      }
+    }, 25);
+  }
+  function stopMusic() {
+    if (!music.out) return;
+    music.on = false; clearInterval(music.timer);
+    music.out.gain.cancelScheduledValues(actx.currentTime);
+    music.out.gain.setTargetAtTime(0, actx.currentTime, 0.15);
+  }
+
+  function toggleMute() {
+    muted = !muted; showMute();
+    try { localStorage.setItem('motorRushMute', muted ? '1' : '0'); } catch (e) {}
+    initAudio();
+    if (eng) eng.master.gain.setTargetAtTime(muted ? 0 : 0.45, actx.currentTime, 0.05);
+  }
+  muteBtn.addEventListener('click', e => { e.stopPropagation(); toggleMute(); muteBtn.blur(); });
+  document.addEventListener('visibilitychange', () => {
+    if (!actx) return;
+    if (document.hidden) actx.suspend(); else actx.resume();
+  });
+
+  // ---------- State ----------
+  let player, obstacles, scenery, state = 'start';
+  let speed, distance, elapsed, nextSpawn, roadOffset, crash, shake, nextAnimal, warn;
+  let nextPower = 0, shieldUntil = 0, gunUntil = 0, fireCd = 0;
+  let bullets = [], particles = [], popups = [];
+  let weather, drops = [], splashes = [];
+  const MAX_LIVES = 5;
+  let lives = MAX_LIVES, graceUntil = 0;
+  let baseSpeed = 300, mult = 1, throttle = 0, wasBraking = false; // pecut / brek
+  let amb = null, nextAmb = 0, ambWarnUntil = 0;                 // ambulans
+  let smoke = [], smokeT = 0;                                     // asap ekzos
+  const WOBBLE_TIME = 1.1;
+  let wobbleUntil = 0, wobbleSeed = 0;                            // hilang kawalan lepas masuk lubang
+  let safeLane = 1, nextSafeSwitch = 0;                           // lorong yang dijamin terbuka
+
+  // ---------- Pilihan kenderaan pemain ----------
+  // w/h = saiz kawasan langgar (kereta lebih lebar → lebih susah menyelit)
+  const VEHICLES = {
+    motor: { name: 'Motor', emoji: '🏍️', w: 26, h: 54 },
+    car:   { name: 'Kereta Sport', emoji: '🏎️', w: 32, h: 60 },
+    horse: { name: 'Kuda', emoji: '🐎', w: 24, h: 58 },
+  };
+  let vehicle = 'motor';
+  try { const v = localStorage.getItem('selitVehicle'); if (VEHICLES[v]) vehicle = v; } catch (e) {}
+  let hoofPhase = 0, lastGas = false, neighCd = 0;               // kuda
+
+  // ---------- Skor ----------
+  // 1 mata setiap meter + bonus: SELIT celah antara dua kenderaan (+100, +150 kalau ada haiwan) — darab combo sampai x5
+  // kalau selit berturut-turut dalam 3 saat; hancurkan halangan (+30); ambil power-up (+25); bagi laluan ambulans (+100)
+  let bonus = 0, combo = 0, comboUntil = 0, maxCombo = 0;
+  function currentScore() { return Math.max(0, Math.floor(distance / 10 + bonus)); }
+  function addPoints(n, text, x, y, color) {
+    bonus += n;
+    if (text) popups.push({ x, y, text, color: color || '#69f0ae', life: 1.1, small: true });
+  }
+  // SELIT = lalu CELAH antara dua halangan (kenderaan/haiwan) — satu di kiri, satu di kanan, serentak.
+  // Lalu rapat sebelah satu kereta sahaja (tanpa halangan di sebelah lagi satu) TIDAK dikira.
+  function isSolid(q) { return q.type === 'car' || q.type === 'lorry' || q.type === 'bus' || (q.type === 'animal' && !q.fleeing); }
+  function checkNearMiss() {
+    const py = player.y + player.fy, px = player.x;
+    // halangan mesti di lorong BETUL-BETUL bersebelahan dengan pemain (kiri & kanan) — itu baru "menyelit"
+    const pl = laneOfX(px);
+    const ng = laneW; // had jarak tepi-ke-tepi: tak lebih jauh dari satu lorong
+    const edgeGap = q => {
+      const ql = laneOfX(q.x);
+      if (Math.abs(ql - pl) > 1) return Infinity;
+      return Math.abs(q.x - px) - (q.w + player.w) / 2;
+    };
+    for (const o of obstacles) {
+      if (!isSolid(o)) continue;
+      const prev = o.prevY === undefined ? o.y : o.prevY;
+      o.prevY = o.y;
+      // dikira sekali sahaja, bila halangan lalu melepasi paras pemain
+      if (o.passed || !(prev < py && o.y >= py)) continue;
+      o.passed = true;
+      if (o.lastBump !== undefined || edgeGap(o) > ng) continue;   // bergesel / tak rapat → tiada bonus
+      const side = Math.sign(o.x - px);
+      // mesti ada halangan lain di SEBELAH BERTENTANGAN, sebaris dengan pemain pada masa yang sama
+      const other = obstacles.find(q => q !== o && isSolid(q) && q.lastBump === undefined &&
+        Math.sign(q.x - px) === -side &&
+        Math.abs(q.y - py) < (q.h + player.h) / 2 + 20 &&
+        edgeGap(q) <= ng);
+      if (!other) continue;
+      other.passed = true; // pasangan ni dah dikira
+      combo = elapsed < comboUntil ? Math.min(combo + 1, 5) : 1;
+      comboUntil = elapsed + 3;
+      maxCombo = Math.max(maxCombo, combo);
+      const ani = o.type === 'animal' || other.type === 'animal';
+      const pts = (ani ? 150 : 100) * combo;
+      addPoints(pts, 'SELIT! +' + pts + (combo > 1 ? '  x' + combo : ''), px, py - 70,
+        combo >= 4 ? '#ff80ab' : combo >= 2 ? '#ffd740' : '#69f0ae');
+      selitSound(combo);
+      missionEvent('selit');
+    }
+  }
+
+  // ---------- Misi ----------
+  // Satu misi pada satu masa. Siapkan → markah bonus (laju tak diubah).
+  // ev = acara yang menambah kemajuan; fail = acara yang set semula kemajuan; kind = dikira terus setiap frame.
+  const MISSIONS = [
+    { id: 'selit', text: n => 'Selit ' + n + ' kali', n: 2, ev: 'selit' },
+    { id: 'pass', text: n => 'Potong ' + n + ' kenderaan', n: 8, ev: 'pass' },
+    { id: 'dodge', text: n => 'Elak ' + n + ' lubang', n: 2, ev: 'holeDodge', fail: 'holeHit' },
+    { id: 'clean', text: n => 'Tempuh ' + n + ' m tanpa gesel', n: 300, kind: 'dist', fail: 'bump' },
+    { id: 'gas', text: n => 'Pecut ⚡ ' + n + ' saat', n: 5, kind: 'gas' },
+    { id: 'nobrake', text: n => 'Jangan brek ' + n + ' saat', n: 15, kind: 'nobrake' },
+    { id: 'lane', text: n => 'Tukar lorong ' + n + ' kali', n: 6, ev: 'lane' },
+    { id: 'points', text: n => 'Kumpul ' + n + ' mata', n: 250, kind: 'points' },
+  ];
+  let mission = null, nextMissionAt = 0, missionsDone = 0, missionBanner = null, lastMissionId = '';
+  let rampT = 0, lastLane = -1;
+  function startMission() {
+    const pool = MISSIONS.filter(m => m.id !== lastMissionId);
+    const def = pool[Math.floor(Math.random() * pool.length)];
+    lastMissionId = def.id;
+    // misi makin sukar sikit setiap kali siap
+    const n = Math.round(def.n * (1 + missionsDone * 0.25));
+    mission = { def, n, prog: 0, startDist: distance, startScore: currentScore(), shownAt: elapsed };
+    popups.push({ x: W / 2, y: H * 0.42, text: '🎯 Misi baru: ' + def.text(n), color: '#80d8ff', life: 2, small: true });
+    missionSound(false);
+  }
+  function missionEvent(ev) {
+    if (!mission || state !== 'play') return;
+    const d = mission.def;
+    if (d.ev === ev) mission.prog++;
+    if (d.fail === ev && mission.prog > 0) {
+      mission.prog = 0; mission.startDist = distance;
+      popups.push({ x: player.x, y: player.y - 95, text: '🎯 Misi bermula semula', color: '#ff8a65', life: 1, small: true });
+    }
+  }
+  function updateMission(dt) {
+    if (!mission) { if (elapsed >= nextMissionAt) startMission(); return; }
+    const m = mission, k = m.def.kind;
+    if (k === 'dist') m.prog = (distance - m.startDist) / 10;
+    else if (k === 'gas' && throttle > 0) m.prog += dt;
+    else if (k === 'nobrake') m.prog = throttle < 0 ? 0 : m.prog + dt;
+    else if (k === 'points') m.prog = Math.max(0, currentScore() - m.startScore);
+    // tukar lorong
+    const ln = laneOfX(player.x);
+    if (lastLane >= 0 && ln !== lastLane) missionEvent('lane');
+    lastLane = ln;
+    if (m.prog >= m.n) completeMission();
+  }
+  function completeMission() {
+    missionsDone++;
+    // ganjaran: markah bonus sahaja (laju tak diubah) — makin banyak misi siap, makin besar bonus
+    const reward = 200 + missionsDone * 100;
+    addPoints(reward);
+    missionBanner = { until: elapsed + 2.8, reward };
+    mission = null;
+    nextMissionAt = elapsed + 6;
+    missionSound(true);
+  }
+  // kenderaan dipotong & lubang dielak (untuk misi)
+  function trackPasses() {
+    const py = player.y + player.fy;
+    for (const o of obstacles) {
+      if (o.type !== 'hole' && o.type !== 'car' && o.type !== 'lorry' && o.type !== 'bus') continue;
+      const prev = o.trackY === undefined ? o.y : o.trackY;
+      o.trackY = o.y;
+      if (o.counted || !(prev < py && o.y >= py)) continue;
+      o.counted = true;
+      if (o.type === 'hole') { if (!o.hit) missionEvent('holeDodge'); }
+      else if (o.lastBump === undefined) missionEvent('pass');
+    }
+  }
+  function drawMission() {
+    if (state !== 'play') return;
+    // kad misi (kanan atas, bawah kotak TERBAIK)
+    if (mission) {
+      const m = mission, cw = Math.min(150, W * 0.42), cx = W - cw - 10, cy = 74;
+      const fresh = elapsed - m.shownAt < 1.5 && Math.floor(elapsed * 8) % 2 === 0;
+      ctx.fillStyle = fresh ? 'rgba(2,136,209,.85)' : 'rgba(26,16,51,.72)';
+      rr(cx, cy, cw, 40, 10); ctx.fill();
+      ctx.strokeStyle = 'rgba(128,216,255,.6)'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#e1f5fe';
+      ctx.font = 'bold 11px system-ui';
+      let label = '🎯 ' + m.def.text(m.n);
+      while (ctx.measureText(label).width > cw - 14 && label.length > 6) label = label.slice(0, -2) + '…';
+      ctx.fillText(label, cx + 7, cy + 13);
+      const frac = Math.min(1, m.prog / m.n);
+      ctx.fillStyle = 'rgba(255,255,255,.15)'; rr(cx + 7, cy + 24, cw - 50, 8, 4); ctx.fill();
+      ctx.fillStyle = '#40c4ff'; rr(cx + 7, cy + 24, Math.max(4, (cw - 50) * frac), 8, 4); ctx.fill();
+      ctx.fillStyle = '#e1f5fe'; ctx.font = 'bold 10px system-ui'; ctx.textAlign = 'right';
+      const shown = m.def.kind === 'gas' || m.def.kind === 'nobrake' ? m.prog.toFixed(1) : Math.floor(m.prog);
+      ctx.fillText(shown + '/' + m.n, cx + cw - 7, cy + 28);
+    }
+    // banner misi selesai
+    if (missionBanner && elapsed < missionBanner.until) {
+      const b = missionBanner, a = Math.min(1, (b.until - elapsed) * 2);
+      ctx.globalAlpha = a;
+      const bw = Math.min(300, W - 30), bx = W / 2 - bw / 2, by = H * 0.3;
+      const g = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+      g.addColorStop(0, '#00b8d4'); g.addColorStop(1, '#651fff');
+      ctx.fillStyle = g; rr(bx, by, bw, 74, 16); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+      ctx.font = 'bold 20px system-ui'; ctx.fillText('🎯 MISI SELESAI!', W / 2, by + 22);
+      ctx.font = 'bold 13px system-ui';
+      ctx.fillText('⭐ +' + b.reward + ' markah bonus!', W / 2, by + 52);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // ---------- Potong depan kenderaan tiba-tiba → kena hon ----------
+  // Bila pemain masuk ke lorong betul-betul DEPAN kenderaan yang rapat di belakang (atau brek mengejut di depannya),
+  // pemandu itu hon + kelip lampu. Sekali setiap 3 saat bagi setiap kenderaan.
+  function hornKind(o) {
+    if (o.skin === 'tuktuk' || o.skin === 'dirtbike') return 'small';
+    if (o.type === 'lorry' || o.type === 'bus') return 'big';
+    return 'car';
+  }
+  function honkAt(o) {
+    o.honkCd = elapsed + 3;
+    o.flashUntil = elapsed + 0.6;
+    hornSound(hornKind(o));
+    const txt = { small: '📢 Pip-pip!', big: '📢 PONNNNN!', car: '📢 PONNN!' }[hornKind(o)];
+    popups.push({ x: o.x, y: o.y - o.h / 2 - 14, text: txt, color: '#ffeb3b', life: 1, small: true });
+  }
+  function checkCutIn() {
+    const py = player.y + player.fy;
+    for (const o of obstacles) {
+      if (!(o.type === 'car' || o.type === 'lorry' || o.type === 'bus') || o.wrecked) continue;
+      const overlapX = Math.abs(o.x - player.x) < (o.w + player.w) / 2 - 2;
+      const gap = (o.y - o.h / 2) - (py + player.h / 2);   // jarak belakang pemain → muncung kenderaan
+      const closeBehind = o.y > py && gap > -12 && gap < 110;
+      if (closeBehind && overlapX && elapsed > (o.honkCd || 0)) {
+        // potong masuk tiba-tiba ATAU brek mengejut betul-betul di depannya
+        if (!o.wasOverlapX || (throttle < 0 && gap < 60)) honkAt(o);
+      }
+      o.wasOverlapX = overlapX;
+    }
+  }
+
+  // ---------- Pertukaran lokasi ----------
+  // Bila laju ≥ 160 km/j selama LOC_TIME saat → skrin pudar gelap, lokasi bertukar, laju kembali perlahan, +500 mata.
+  let maxSpeedTime = 0, locTrans = null, locBanner = null, locsVisited = 1;
+  function updateLocation(dt) {
+    if (locTrans) {
+      locTrans.t += dt;
+      if (!locTrans.swapped && locTrans.t >= 0.6) { locTrans.swapped = true; swapLocation(); }
+      if (locTrans.t >= 1.2) locTrans = null;
+      return;
+    }
+    if (speed >= 795) maxSpeedTime += dt; else maxSpeedTime = Math.max(0, maxSpeedTime - dt * 0.5);
+    if (maxSpeedTime >= LOC_TIME) { maxSpeedTime = 0; locTrans = { t: 0, swapped: false }; whooshSound(); }
+  }
+  function swapLocation() {
+    locIdx = (locIdx + 1) % LOCATIONS.length;
+    locsVisited++;
+    buildTextures();
+    // kosongkan jalan & bina pemandangan baru
+    obstacles = []; bullets = []; warn = null; amb = null; stopSiren();
+    scenery = [];
+    for (let y = -100; y < H + 100; y += 90) addScenery(y);
+    rampT = 0; baseSpeed = 300; mult = Math.min(mult, 1); nextSpawn = 250;
+    safeLane = Math.floor(Math.random() * LANES); nextSafeSwitch = elapsed + 4;
+    graceUntil = elapsed + 1.5;
+    addPoints(500);
+    locBanner = { until: elapsed + 3.5 };
+    missionSound(true);
+  }
+  function drawLocation() {
+    // amaran: hampir pindah lokasi
+    if (state === 'play' && !locTrans && maxSpeedTime > LOC_TIME - 6) {
+      const left = Math.ceil(LOC_TIME - maxSpeedTime);
+      const next = LOCATIONS[(locIdx + 1) % LOCATIONS.length];
+      ctx.font = 'bold 13px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const txt = '📍 ' + next.name + ' dalam ' + left + 's';
+      const tw = ctx.measureText(txt).width + 22;
+      ctx.fillStyle = 'rgba(26,16,51,.75)'; rr(W / 2 - tw / 2, H - 92, tw, 26, 13); ctx.fill();
+      ctx.fillStyle = '#ffe082'; ctx.fillText(txt, W / 2, H - 79);
+    }
+    // pudar gelap semasa bertukar
+    if (locTrans) {
+      ctx.fillStyle = 'rgba(10,6,25,' + Math.max(0, 1 - Math.abs(locTrans.t - 0.6) / 0.6) + ')';
+      ctx.fillRect(-20, -20, W + 40, H + 40);
+    }
+    // banner lokasi baru
+    if (locBanner && state === 'play' && elapsed < locBanner.until) {
+      const L = LOC(), a = Math.min(1, (locBanner.until - elapsed) * 2);
+      ctx.globalAlpha = a;
+      const bw = Math.min(310, W - 30), bx = W / 2 - bw / 2, by = H * 0.3;
+      const g = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+      g.addColorStop(0, '#ff6f00'); g.addColorStop(1, '#d81b60');
+      ctx.fillStyle = g; rr(bx, by, bw, 78, 16); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+      ctx.font = 'bold 12px system-ui'; ctx.fillText('📍 LOKASI BARU', W / 2, by + 16);
+      ctx.font = 'bold 18px system-ui'; ctx.fillText(L.flag + ' ' + L.name, W / 2, by + 38);
+      ctx.font = 'bold 12px system-ui'; ctx.fillText('+500 mata · 🐢 Laju kembali perlahan', W / 2, by + 61);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // ---------- Duduk atas garis putus-putus terlalu lama → hilang imbangan ----------
+  const LINE_LIMIT = 2.0;  // saat
+  const GESEL_PENALTY = 50;      // tolak skor bila gesel tepi (selain hilang nyawa)
+  const LINE_DRAIN = 15;         // mata ditolak setiap saat semasa amaran "Atas garisan!"
+  const LINE_PENALTY = 40;       // tolak skor bila akhirnya hilang imbangan
+  const HOLE_PENALTY = 30;       // tolak skor bila masuk lubang
+  let lineTime = 0;
+  function updateLineBalance(dt) {
+    if (LOC().lines === 'ruts') { lineTime = 0; return; } // jalan tanah tiada garisan
+    let onLine = false;
+    for (let i = 1; i < LANES; i++) if (Math.abs(player.x - (roadX + laneW * i)) < 9) onLine = true;
+    lineTime = onLine ? lineTime + dt : Math.max(0, lineTime - dt * 2);
+    // makin lama atas garisan, makin bergoyang
+    if (lineTime > 0.6) player.tilt += Math.sin(elapsed * 20) * 0.06 * (lineTime / LINE_LIMIT);
+    // skor merosot sikit-sikit semasa amaran
+    if (onLine && lineTime > 0.8) bonus -= LINE_DRAIN * dt;
+    if (lineTime >= LINE_LIMIT) {
+      lineTime = 0;
+      addPoints(-LINE_PENALTY, '-' + LINE_PENALTY, player.x + 34, player.y + 20, '#ff5252');
+      wobbleUntil = elapsed + WOBBLE_TIME;
+      wobbleSeed = Math.random() * 10;
+      player.bx += (Math.random() < 0.5 ? -1 : 1) * 260;
+      shake = Math.max(shake, 5);
+      combo = 0;
+      popups.push({ x: player.x, y: player.y - 70, text: 'Hilang imbangan! 😵', color: '#ff8a65', life: 1.2, small: true });
+      bumpSound();
+    }
+  }
+  const input = { left: false, right: false };
+  const pointers = new Map();
+
+  const CAR_COLORS = ['#ff1744', '#2979ff', '#fafafa', '#00c853', '#d500f9', '#ff9100', '#00b8d4', '#ffd600', '#ff4081'];
+
+  function reset() {
+    // setiap permainan baru bermula di Malaysia
+    if (locIdx !== 0) { locIdx = 0; buildTextures(); }
+    maxSpeedTime = 0; locTrans = null; locBanner = null; locsVisited = 1;
+    player = { x: roadX + laneW * 1.5, y: H - 130, w: VEHICLES[vehicle].w, h: VEHICLES[vehicle].h, tilt: 0, bx: 0 };
+    hoofPhase = 0; lastGas = false; neighCd = 0;
+    mission = null; nextMissionAt = 8; missionsDone = 0; missionBanner = null; lastMissionId = '';
+    rampT = 0; lastLane = -1;
+    bonus = 0; combo = 0; comboUntil = 0; maxCombo = 0; lineTime = 0;
+    obstacles = [];
+    scenery = [];
+    for (let y = -100; y < H + 100; y += 90) addScenery(y);
+    speed = 320; distance = 0; elapsed = 0; nextSpawn = 200; roadOffset = 0;    crash = null; shake = 0;
+    nextAnimal = 45 + Math.random() * 15; // haiwan pertama muncul selepas 45–60 saat
+    warn = null;
+    nextPower = 60 + Math.random() * 15; // power-up pertama hanya selepas 60–75 saat
+    shieldUntil = 0; gunUntil = 0; fireCd = 0;
+    bullets = []; particles = []; popups = [];
+    weather = { mode: 'clear', int: 0, flash: 0, bolt: null, boltLife: 0, nextFlash: 0, msg: null };
+    drops = []; splashes = [];
+    lives = MAX_LIVES; graceUntil = 0;
+    baseSpeed = 300; mult = 1; throttle = 0; wasBraking = false;
+    amb = null; nextAmb = 30 + Math.random() * 20; ambWarnUntil = 0; // ambulans pertama selepas 30–50 saat
+    stopSiren();
+    player.fy = 0;
+    smoke = [];
+    wobbleUntil = 0;
+    safeLane = Math.floor(Math.random() * LANES); nextSafeSwitch = 4;
+  }
+
+  // ---------- Ambulans kecemasan: datang dari belakang dalam lorong kita, nak potong ----------
+  // Kalau kita tak bagi laluan, dia tolak kita ke depan (tiada nyawa hilang) sampai kita ke tepi.
+  const AMB_EXTRA = 230; // berapa laju ambulans lebih daripada kita (px/s)
+  function spawnAmbulance() {
+    const lane = Math.max(0, Math.min(LANES - 1, Math.floor((player.x - roadX) / laneW)));
+    amb = { type: 'ambulance', x: roadX + laneW * (lane + 0.5), y: H + 140, w: 40, h: 84, rel: 1,
+            vs: speed + AMB_EXTRA, t: 0, lastPush: -9 };
+    obstacles.push(amb);
+    ambWarnUntil = elapsed + 3;
+    startSiren();
+  }
+  function ambulanceHit(o, py, ph) {
+    if (o.y > py) {
+      // dari belakang: ambulans berhenti rapat di belakang & tolak kita ke depan
+      o.y = py + (ph + o.h * 0.9) / 2 + 1;
+      if (elapsed - o.lastPush > 0.5) {
+        o.lastPush = elapsed;
+        player.fy = -36;
+        shake = Math.max(shake, 3);
+        hornSound();
+        popups.push({ x: player.x, y: player.y - 70, text: '🚑 Bagi laluan!', color: '#ff5252', life: 1, small: true });
+      }
+    } else {
+      // tersentuh dari tepi: lantun ke tepi je, tiada nyawa hilang
+      const side = player.x < o.x ? -1 : 1;
+      player.bx = side * 300;
+    }
+  }
+  function drawAmbulance(o) {
+    const { w, h } = o;
+    ctx.save(); ctx.translate(o.x, o.y);
+    wheels(w, h, -h / 2 + 12, h / 2 - 26);
+    softFill('#fafafa', -w / 2, -h / 2, w, h, 8);
+    shade(-w / 2, -h / 2, w, h, 8);
+    glass(-w / 2 + 5, -h / 2 + 6, w - 10, 12, 3);                                         // cermin depan
+    ctx.fillStyle = '#e53935'; ctx.fillRect(-w / 2, -h / 2 + 24, w, 6);                   // jalur merah
+    ctx.fillStyle = '#e53935'; ctx.fillRect(-3, 6, 6, 22); ctx.fillRect(-11, 14, 22, 6);  // palang merah
+    // lampu siren berkelip merah/biru
+    const ph = Math.floor(o.t * 8) % 2;
+    ctx.shadowBlur = 22;
+    ctx.shadowColor = ph ? '#ff1744' : '#2979ff'; ctx.fillStyle = ph ? '#ff1744' : '#5c6bc0';
+    rr(-w / 2 + 4, -h / 2 + 19, w / 2 - 5, 5, 2); ctx.fill();
+    ctx.shadowColor = ph ? '#2979ff' : '#ff1744'; ctx.fillStyle = ph ? '#2979ff' : '#ff5252';
+    rr(1, -h / 2 + 19, w / 2 - 5, 5, 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+  // siren "nee-naw" berterusan semasa ambulans ada
+  let siren = null;
+  function startSiren() {
+    if (!actx || siren) return;
+    const o = actx.createOscillator(); o.type = 'triangle';
+    const sq = actx.createOscillator(); sq.type = 'square'; sq.frequency.value = 1.1; // tukar nada 1.1x sesaat
+    const sg = actx.createGain(); sg.gain.value = 95;
+    sq.connect(sg); sg.connect(o.frequency); o.frequency.value = 865;
+    const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 2500;
+    const g = actx.createGain(); g.gain.value = 0;
+    o.connect(f); f.connect(g); g.connect(eng.master);
+    o.start(); sq.start();
+    siren = { o, sq, g };
+  }
+  function stopSiren() {
+    if (!siren) return;
+    const s = siren; siren = null;
+    const t = actx.currentTime;
+    s.g.gain.setTargetAtTime(0, t, 0.15);
+    s.o.stop(t + 1); s.sq.stop(t + 1);
+  }
+  function updateAmbulance() {
+    if (!amb) return;
+    if (!obstacles.includes(amb) || state !== 'play') { amb = null; stopSiren(); return; }
+    amb.vs = speed + AMB_EXTRA; // sentiasa nak potong
+    // dah berjaya potong kita → bonus bagi laluan
+    if (!amb.thanked && amb.y + amb.h / 2 < player.y - 40) {
+      amb.thanked = true;
+      addPoints(100, '🚑 Terima kasih! +100', player.x, player.y - 80, '#80d8ff');
+    }
+    if (siren) {
+      // makin dekat makin kuat
+      const d = Math.abs(amb.y - player.y);
+      siren.g.gain.setTargetAtTime(Math.max(0.02, 0.1 - d / 9000), actx.currentTime, 0.1);
+    }
+  }
+
+  // ---------- Cuaca: cerah → hujan biasa → ribut petir (makin lama main) ----------
+  // 0–50 s cerah; lepas tu kitaran 150 s: hujan 60 s → ribut petir 50 s → hujan 20 s → cerah 20 s
+  function weatherFor(e) {
+    if (e < 50) return 'clear';
+    const c = (e - 50) % 150;
+    return c < 60 ? 'rain' : c < 110 ? 'storm' : c < 130 ? 'rain' : 'clear';
+  }
+  const WEATHER = {
+    clear: { int: 0, msg: '🌤️ Hujan dah berhenti' },
+    rain:  { int: 0.5, msg: '🌧️ Hujan mula turun...' },
+    storm: { int: 1, msg: '⛈️ Ribut petir! Hati-hati!' },
+  };
+  function makeBolt() {
+    const pts = [];
+    let x = roadX + Math.random() * roadW, y = 0;
+    const endY = H * (0.35 + Math.random() * 0.25);
+    while (y < endY) { pts.push([x, y]); x += (Math.random() - 0.5) * 50; y += 20 + Math.random() * 30; }
+    pts.push([x, y]);
+    // satu cabang kecil
+    const i = 1 + Math.floor(Math.random() * (pts.length - 2));
+    const br = [pts[i]];
+    let bx = pts[i][0], by = pts[i][1];
+    for (let k = 0; k < 4; k++) { bx += (Math.random() < 0.5 ? -1 : 1) * (10 + Math.random() * 25); by += 18 + Math.random() * 20; br.push([bx, by]); }
+    return [pts, br];
+  }
+  function updateWeather(dt) {
+    if (state === 'play') {
+      const mode = weatherFor(elapsed);
+      if (mode !== weather.mode) {
+        weather.mode = mode;
+        weather.msg = { text: WEATHER[mode].msg, until: elapsed + 3 };
+      }
+      // kilat semasa ribut
+      if (mode === 'storm' && weather.int > 0.7 && elapsed > weather.nextFlash) {
+        weather.flash = 1; weather.bolt = makeBolt(); weather.boltLife = 0.22;
+        const close = Math.random() < 0.4;
+        thunderSound(close ? 0.1 : 0.4 + Math.random() * 0.8, close);
+        weather.nextFlash = elapsed + 3 + Math.random() * 5;
+      }
+    }
+    // keamatan berubah beransur-ansur (lebih kurang 4–5 saat)
+    weather.int += (WEATHER[weather.mode].int - weather.int) * Math.min(1, dt * 0.45);
+    weather.flash = Math.max(0, weather.flash - dt * 3.5);
+    weather.boltLife = Math.max(0, weather.boltLife - dt);
+    // titisan hujan
+    const want = Math.floor(weather.int * 260);
+    while (drops.length < want) drops.push({ x: Math.random() * (W + 100), y: Math.random() * H - H, len: 12 + Math.random() * 16, spd: 700 + Math.random() * 400 });
+    if (drops.length > want) drops.length = want;
+    const fall = state === 'play' ? speed * 0.5 : 0;
+    for (const d of drops) {
+      d.y += (d.spd + fall) * dt; d.x -= d.spd * 0.12 * dt;
+      if (d.y > H + 20) { d.y = -20 - Math.random() * 60; d.x = Math.random() * (W + 100); }
+    }
+    // percikan atas jalan
+    if (Math.random() < weather.int * 40 * dt) {
+      splashes.push({ x: roadX + Math.random() * roadW, y: Math.random() * H, life: 0.3 });
+    }
+    for (const s of splashes) { s.life -= dt; s.y += (state === 'play' ? speed : 0) * dt; }
+    splashes = splashes.filter(s => s.life > 0);
+    // bunyi hujan (perlahan sikit di skrin Game Over)
+    setRain(weather.int * (state === 'play' ? 0.16 : 0.06));
+  }
+  // pancaran lampu depan (ke atas skrin) & cahaya lampu belakang merah — guna campuran 'lighter'
+  function drawLights(k) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const beam = (x, y, len, spread, a) => {
+      const g = ctx.createLinearGradient(0, y, 0, y - len);
+      g.addColorStop(0, 'rgba(255,240,190,' + a + ')'); g.addColorStop(1, 'rgba(255,240,190,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.moveTo(x - 3, y); ctx.lineTo(x - spread, y - len); ctx.lineTo(x + spread, y - len); ctx.lineTo(x + 3, y); ctx.fill();
+    };
+    const glow = (x, y, r, col, a) => {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, 'rgba(' + col + ',' + a + ')'); g.addColorStop(1, 'rgba(' + col + ',0)');
+      ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    };
+    const a = 0.2 * k;
+    if (state === 'play') {
+      const py0 = player.y + player.fy;
+      if (vehicle === 'car') {
+        beam(player.x - 10, py0 - 30, 210, 40, a * 1.3); beam(player.x + 10, py0 - 30, 210, 40, a * 1.3);
+        glow(player.x - 11, py0 + 30, 18, '255,30,60', 0.45 * k); glow(player.x + 11, py0 + 30, 18, '255,30,60', 0.45 * k);
+      } else if (vehicle === 'motor') {
+        beam(player.x, py0 - 28, 200, 48, a * 1.4);
+        glow(player.x, py0 + 25, 18, '255,30,60', 0.45 * k);
+      } // kuda: tiada lampu
+    }
+    for (const o of obstacles) {
+      if (o.type !== 'car' && o.type !== 'lorry' && o.type !== 'bus' && o.type !== 'ambulance') continue;
+      const top = o.y - o.h / 2, bot = o.y + o.h / 2;
+      beam(o.x - o.w / 2 + 8, top, 140, 24, a);
+      beam(o.x + o.w / 2 - 8, top, 140, 24, a);
+      glow(o.x - o.w / 2 + 7, bot - 3, 20, '255,30,60', 0.4 * k);
+      glow(o.x + o.w / 2 - 7, bot - 3, 20, '255,30,60', 0.4 * k);
+      if (o.type === 'ambulance') glow(o.x, top + 21, 60, Math.floor(o.t * 8) % 2 ? '255,40,70' : '60,110,255', 0.35 * k);
+    }
+    ctx.restore();
+  }
+
+  function drawWeather() {
+    const k = weather.int;
+    if (k > 0.01) {
+      // jalan basah berkilat + langit gelap
+      ctx.fillStyle = 'rgba(120,160,220,' + (0.08 * k) + ')'; ctx.fillRect(roadX, 0, roadW, H);
+      ctx.fillStyle = 'rgba(8,14,35,' + ((weather.mode === 'storm' ? 0.42 : 0.28) * k) + ')'; ctx.fillRect(0, 0, W, H);
+      // lampu kenderaan menyala dalam gelap
+      if (k > 0.12) drawLights(k);
+      // percikan
+      ctx.strokeStyle = 'rgba(200,220,255,.5)'; ctx.lineWidth = 1;
+      for (const s of splashes) {
+        const r = (0.3 - s.life) * 30;
+        ctx.globalAlpha = s.life / 0.3;
+        ctx.beginPath(); ctx.ellipse(s.x, s.y, r, r * 0.4, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      // titisan hujan (garis condong)
+      ctx.strokeStyle = 'rgba(190,210,255,.55)'; ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      for (const d of drops) { ctx.moveTo(d.x, d.y); ctx.lineTo(d.x + d.len * 0.12, d.y - d.len); }
+      ctx.stroke();
+    }
+    // kilat
+    if (weather.flash > 0) {
+      ctx.fillStyle = 'rgba(235,240,255,' + (weather.flash * 0.7) + ')'; ctx.fillRect(0, 0, W, H);
+    }
+    if (weather.boltLife > 0 && weather.bolt) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, weather.boltLife / 0.1);
+      ctx.shadowColor = '#b3c7ff'; ctx.shadowBlur = 20; ctx.strokeStyle = '#fff'; ctx.lineJoin = 'round';
+      weather.bolt.forEach((line, i) => {
+        ctx.lineWidth = i ? 1.5 : 3.5;
+        ctx.beginPath(); line.forEach(([x, y], j) => j ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke();
+      });
+      ctx.restore();
+    }
+  }
+
+  // ---------- Power-up: 🛡️ Perisai (rempuh apa saja) & 🔫 Tembak (tembak apa saja di depan) ----------
+  const POWER_TIME = 7; // saat
+  const POWERS = {
+    shield: { emoji: '🛡️', color: '#00e5ff', label: 'PERISAI!' },
+    gun:    { emoji: '🔫', color: '#ff6d00', label: 'TEMBAK!' },
+  };
+  function spawnPower() {
+    const lane = Math.floor(Math.random() * LANES);
+    const kind = Math.random() < 0.5 ? 'shield' : 'gun';
+    obstacles.push({ type: 'power', kind, x: roadX + laneW * (lane + 0.5), y: -40, w: 40, h: 40, rel: 1, t: 0 });
+  }
+  function collect(o) {
+    o.dead = true;
+    if (o.kind === 'shield') shieldUntil = elapsed + POWER_TIME;
+    else gunUntil = elapsed + POWER_TIME;
+    popups.push({ x: player.x, y: player.y - 60, text: POWERS[o.kind].emoji + ' ' + POWERS[o.kind].label, color: POWERS[o.kind].color, life: 1.2 });
+    addPoints(25);
+    pickupSound();
+  }
+  function destroy(o) {
+    o.dead = true;
+    if (state === 'play') addPoints(30, '+30', o.x, o.y - 24, '#ffd740');
+    shake = Math.max(shake, 5);
+    const cols = o.type === 'animal' ? ['#8d6e63', '#ffcc80', '#fff']
+      : o.type === 'hole' ? ['#3e2723', '#5d4037', '#212121']
+      : [o.color || '#999', '#263238', '#fff59d', '#ff1744'];
+    for (let i = 0; i < 18; i++) {
+      const a = Math.random() * Math.PI * 2, s = 120 + Math.random() * 320;
+      particles.push({ x: o.x, y: o.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 120, life: 0.5 + Math.random() * 0.4,
+        c: cols[i % cols.length], sz: 3 + Math.random() * 5, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 20 });
+    }
+    popups.push({ x: o.x, y: o.y, text: '💥', life: 0.45, big: true });
+    boomSound();
+  }
+
+  // masuk lubang: terhentak, perlahan sikit, hilang kawalan ~1 saat
+  function hitHole(o) {
+    wobbleUntil = elapsed + WOBBLE_TIME;
+    wobbleSeed = Math.random() * 10;
+    mult = Math.max(0.6, mult * 0.8);
+    player.bx += (Math.random() < 0.5 ? -1 : 1) * 200;
+    shake = Math.max(shake, 7);
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 2, s = 80 + Math.random() * 160;
+      particles.push({ x: o.x, y: o.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.35 + Math.random() * 0.25,
+        c: i % 2 ? '#6d4c41' : '#90caf9', sz: 2 + Math.random() * 3, rot: 0, vr: 0 }); // tanah & air
+    }
+    popups.push({ x: player.x, y: player.y - 60, text: 'Gedebuk! 🕳️', color: '#ffd54f', life: 0.9, small: true });
+    addPoints(-HOLE_PENALTY, '-' + HOLE_PENALTY, player.x + 34, player.y + 20, '#ff5252');
+    missionEvent('holeHit');
+    combo = 0;
+    holeSound();
+  }
+
+  // gesel tepi: percikan bunga api + bunyi "dush"
+  function bump(x, y, o) {
+    for (let i = 0; i < 10; i++) {
+      const a = Math.random() * Math.PI * 2, s = 100 + Math.random() * 220;
+      particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 80, life: 0.25 + Math.random() * 0.25,
+        c: i % 2 ? '#ffd54f' : '#fff', sz: 2 + Math.random() * 3, rot: 0, vr: 0 });
+    }
+    popups.push({ x, y: y - 20, text: 'Ops!', color: '#ffd54f', life: 0.7 });
+    bumpSound();
+    if (o.type === 'car' || o.type === 'lorry' || o.type === 'bus') {
+      // pemandu marah: hon + jerit
+      const bx = Math.max(roadX + 90, Math.min(roadX + roadW - 90, o.x));
+      popups.push({ x: bx, y: o.y - o.h / 2 - 10, text: '"WOIIII!" 😡', color: '#ff5252', life: 1.6 });
+      hornSound();
+      scold();
+    } else if (o.type === 'animal') {
+      animalVoice(o.name); // haiwan pun marah
+    }
+  }
+
+  function drawPower(o) {
+    const P = POWERS[o.kind], pulse = 1 + Math.sin(o.t * 6) * 0.12;
+    ctx.save(); ctx.translate(o.x, o.y);
+    ctx.shadowColor = P.color; ctx.shadowBlur = 20;
+    ctx.strokeStyle = P.color; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(0, 0, 22 * pulse, 0, Math.PI * 2); ctx.stroke();
+    const g = ctx.createRadialGradient(0, -4, 2, 0, 0, 20);
+    g.addColorStop(0, '#fff'); g.addColorStop(1, P.color);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 17, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.font = '20px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(P.emoji, 0, 1);
+    ctx.restore();
+  }
+  function drawPowerEffects() {
+    // perisai: buih bercahaya sekeliling motor (berkelip bila hampir habis)
+    const sLeft = shieldUntil - elapsed;
+    if (sLeft > 0 && (sLeft > 1.5 || Math.floor(sLeft * 8) % 2 === 0)) {
+      const r = 1 + Math.sin(elapsed * 10) * 0.04;
+      ctx.save(); ctx.translate(player.x, player.y + player.fy);
+      ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 18;
+      ctx.fillStyle = 'rgba(0,229,255,.15)'; ctx.strokeStyle = 'rgba(128,242,255,.9)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(0, 0, 30 * r, 48 * r, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+    // peluru
+    ctx.save();
+    ctx.shadowColor = '#ffab00'; ctx.shadowBlur = 10; ctx.fillStyle = '#fff59d';
+    for (const b of bullets) { rr(b.x - 2.5, b.y - 9, 5, 18, 2.5); ctx.fill(); }
+    ctx.restore();
+    // serpihan
+    for (const p of particles) {
+      ctx.save(); ctx.globalAlpha = Math.min(1, p.life * 2); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.fillStyle = p.c; ctx.fillRect(-p.sz / 2, -p.sz / 2, p.sz, p.sz * 0.6); ctx.restore();
+    }
+    // teks timbul
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const p of popups) {
+      ctx.globalAlpha = Math.min(1, p.life * 2.5);
+      if (p.big) { ctx.font = '46px serif'; ctx.fillStyle = '#000'; ctx.fillText(p.text, p.x, p.y); }
+      else {
+        ctx.font = p.small ? 'bold 15px system-ui' : 'bold 22px system-ui'; ctx.lineWidth = 4; ctx.strokeStyle = '#1a1033';
+        ctx.strokeText(p.text, p.x, p.y); ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y);
+      }
+    }
+    ctx.globalAlpha = 1;
+    // bar masa power di bawah skrin
+    if (state !== 'play') return;
+    const act = [];
+    if (shieldUntil > elapsed) act.push(['shield', shieldUntil - elapsed]);
+    if (gunUntil > elapsed) act.push(['gun', gunUntil - elapsed]);
+    act.forEach(([k, left], i) => {
+      const P = POWERS[k], bw = 130, bx = W / 2 - (act.length * (bw + 10) - 10) / 2 + i * (bw + 10), by = H - 34;
+      ctx.fillStyle = 'rgba(26,16,51,.7)'; rr(bx, by, bw, 24, 12); ctx.fill();
+      ctx.fillStyle = P.color; rr(bx + 28, by + 8, (bw - 38) * (left / POWER_TIME), 8, 4); ctx.fill();
+      ctx.font = '15px serif'; ctx.textAlign = 'center'; ctx.fillText(P.emoji, bx + 15, by + 13);
+    });
+  }
+
+  // ---------- Kejutan: haiwan melintas jalan (jarang) ----------
+  const ANIMALS = [
+    { emoji: '🐊', name: 'buaya', w: 62, h: 30, size: 52, msg: 'Awas! Buaya melintas!' },
+    { emoji: '🐘', name: 'gajah', w: 60, h: 54, size: 60, msg: 'Awas! Gajah melintas!' },
+    { emoji: '🐒', name: 'monyet', w: 34, h: 34, size: 36, msg: 'Awas! Monyet melompat!' },
+    { emoji: '🐄', name: 'lembu', w: 50, h: 44, size: 48, msg: 'Awas! Lembu melintas!' },
+    { emoji: '🐖', name: 'babi', w: 48, h: 36, size: 46, msg: 'Awas! Babi melintas!' },
+    // ladang
+    { emoji: '🐐', name: 'kambing', w: 40, h: 34, size: 38, msg: 'Awas! Kambing melintas!' },
+    { emoji: '🐔', name: 'ayam', w: 26, h: 26, size: 28, msg: 'Awas! Ayam berlari!', fast: true },
+    { emoji: '🐗', name: 'babi hutan', w: 46, h: 36, size: 44, msg: 'Awas! Babi hutan!' },
+    // Thailand
+    { emoji: '🐕', name: 'anjing', w: 34, h: 30, size: 34, msg: 'Awas! Anjing melintas!' },
+    { emoji: '🚶', name: 'pejalan kaki', w: 26, h: 30, size: 36, msg: 'Awas! Orang melintas!', person: true },
+    { emoji: '🏃', name: 'pelancong', w: 26, h: 30, size: 36, msg: 'Awas! Pelancong berlari!', person: true, fast: true },
+  ];
+  // Amaran keluar dulu; haiwan muncul 1.2 saat kemudian supaya sempat bersedia
+  function spawnAnimal() {
+    const names = LOC().animals;
+    const pick = names[Math.floor(Math.random() * names.length)];
+    const a = ANIMALS.find(x => x.name === pick) || ANIMALS[0];
+    const dir = Math.random() < 0.5 ? 1 : -1;          // 1 = dari kiri ke kanan
+    warn = { text: '⚠️ ' + a.msg, until: elapsed + 3.2, dir, a, spawnAt: elapsed + 1.2 };
+  }
+  function releaseAnimal() {
+    const { a, dir } = warn;
+    warn.a = null;
+    const startX = dir > 0 ? roadX - 20 : roadX + roadW + 20;
+    // pilih satu lorong untuk berhenti; haiwan sampai ke lorong tu sebelum separuh jalan ke pemain
+    // jangan tutup lorong terakhir yang terbuka: kalau dah hampir penuh, berhenti di lorong yang memang dah tersekat
+    const bl = blockedLanes(-60, passBand());
+    let choices = [...Array(LANES).keys()].filter(l => l !== safeLane);
+    if (bl.size >= LANES - 1 && bl.size > 0) choices = [...bl].filter(l => l !== safeLane);
+    if (!choices.length) choices = [...Array(LANES).keys()].filter(l => l !== safeLane);
+    const lane = choices[Math.floor(Math.random() * choices.length)];
+    const targetX = roadX + laneW * (lane + 0.5);
+    const travel = (player.y + 60) / speed;              // masa sampai ke paras pemain
+    const arrive = travel * (a.name === 'monyet' || a.fast ? 0.3 : 0.4 + Math.random() * 0.15);
+    obstacles.push({ type: 'animal', ...a, x: startX, y: -60, rel: 1, vx: (targetX - startX) / arrive,
+      dir, targetX, stopped: false, t: 0 });
+    animalVoice(a.name);
+  }
+  // ---------- Kenderaan lain langgar haiwan ----------
+  // Kereta/lori/bas: berhenti mengejut, berpusing sedikit, jadi kenderaan rosak (lampu hazard + asap) di lorong itu.
+  // Haiwan: tercampak ke tepi sambil berpusing, berbunyi, lalu lari keluar dari jalan. Ambulans tak berhenti.
+  function isVehicle(o) { return o.type === 'car' || o.type === 'lorry' || o.type === 'bus' || o.type === 'ambulance'; }
+  function vehicleAnimalImpacts(dt) {
+    for (const v of obstacles) {
+      if (!isVehicle(v)) continue;
+      // kenderaan rosak: pusing ke sudut akhir & keluarkan asap
+      if (v.wrecked) {
+        v.ang += (v.angT - v.ang) * Math.min(1, dt * 6);
+        v.t = (v.t || 0) + dt;
+        if (Math.random() < dt * 9) {
+          smoke.push({ x: v.x + (Math.random() - 0.5) * 10, y: v.y - v.h / 2 + 12, vx: (Math.random() - 0.5) * 30,
+            r: 4, life: 0.9, max: 0.9, a: 0.45 });
+        }
+        continue;
+      }
+      for (const a of obstacles) {
+        if (a.type !== 'animal' || a.fleeing || a.person) continue; // pejalan kaki sempat mengelak kenderaan lain
+        if (Math.abs(v.x - a.x) < (v.w + a.w * 0.7) / 2 && Math.abs(v.y - a.y) < (v.h + a.h * 0.7) / 2) {
+          // haiwan tercampak menjauhi kenderaan
+          const away = a.x < v.x ? -1 : 1;
+          a.fleeing = true; a.stopped = false; a.targetX = undefined;
+          a.dir = away; a.vx = away * 380; a.spin = away * 9; a.rot = 0;
+          if (v.type !== 'ambulance') {
+            v.wrecked = true; v.vs = 0; v.ang = 0; v.angT = (Math.random() < 0.5 ? -1 : 1) * (0.25 + Math.random() * 0.2);
+          }
+          const ix = (v.x + a.x) / 2, iy = v.y - v.h / 2;
+          for (let i = 0; i < 12; i++) {
+            const ang = Math.random() * Math.PI * 2, s = 80 + Math.random() * 220;
+            particles.push({ x: ix, y: iy, vx: Math.cos(ang) * s, vy: Math.sin(ang) * s - 60, life: 0.4 + Math.random() * 0.3,
+              c: [v.color || '#fafafa', '#fff59d', '#bdbdbd'][i % 3], sz: 2 + Math.random() * 4, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 16 });
+          }
+          popups.push({ x: ix, y: iy, text: '💥', life: 0.45, big: true });
+          if (iy > -40 && iy < H + 40) { // bunyi hanya kalau nampak di skrin
+            bumpSound();
+            animalVoice(a.name);
+          }
+          break;
+        }
+      }
+    }
+    // haiwan yang tercampak: berpusing perlahan-lahan berhenti
+    for (const a of obstacles) {
+      if (a.type === 'animal' && a.fleeing) { a.rot += a.spin * dt; a.spin *= Math.exp(-dt * 2.5); }
+    }
+  }
+
+  function drawAnimal(o) {
+    // berjalan: melompat/bergoyang; berhenti: bernafas perlahan (monyet masih melompat setempat)
+    const hop = o.name === 'monyet' || o.fast ? Math.abs(Math.sin(o.t * (o.stopped ? 5 : 9))) * (o.stopped ? 6 : 10)
+      : o.stopped ? Math.sin(o.t * 2) * 1.2 : Math.abs(Math.sin(o.t * 6)) * 3;
+    ctx.save(); ctx.translate(o.x, o.y);
+    ctx.fillStyle = 'rgba(0,0,0,.3)';
+    ctx.beginPath(); ctx.ellipse(2, o.h * 0.35, o.w * 0.45, o.h * 0.22, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.translate(0, -hop);
+    if (o.fleeing) {
+      // tercampak: berpusing + bintang pening
+      ctx.save(); ctx.font = '18px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000';
+      ctx.fillText('💫', Math.sin(o.t * 10) * 10, -o.size * 0.6);
+      ctx.restore();
+      ctx.rotate(o.rot);
+    }
+    if (o.dir > 0) ctx.scale(-1, 1); // emoji biasanya menghadap kiri; terbalikkan bila ke kanan
+    ctx.rotate(Math.sin(o.t * 6) * (o.stopped ? 0.02 : 0.06));
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = o.size + 'px serif';
+    // cahaya putih di sekeliling supaya jelas atas jalan gelap
+    ctx.shadowColor = 'rgba(255,255,255,.95)'; ctx.shadowBlur = 14;
+    ctx.fillStyle = '#000'; // emoji legap sepenuhnya
+    ctx.fillText(o.emoji, 0, 0);
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  // pilih item ikut berat [[nilai, berat], ...]
+  function pickWeighted(list) {
+    let r = Math.random() * list.reduce((s, it) => s + it[1], 0);
+    for (const it of list) { if ((r -= it[1]) < 0) return it[0]; }
+    return list[0][0];
+  }
+  function addScenery(y) {
+    const L = LOC();
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const kind = pickWeighted(L.scenery);
+    scenery.push({ side, y, kind, off: 10 + Math.random() * 18, km: 5 + Math.floor(Math.random() * 300),
+      town: L.towns[Math.floor(Math.random() * L.towns.length)], unit: L.unit, signColor: L.signColor });
+  }
+
+  function spawn() {
+    // jangan letak halangan di semua lorong — pastikan ada laluan
+    const lane = Math.floor(Math.random() * LANES);
+    const cx = roadX + laneW * (lane + 0.5);
+    const r = Math.random();
+    let o;
+    if (r < 0.38) {
+      if (Math.random() < 0.6) return; // kurangkan lubang: hanya ~40% daripada giliran lubang betul-betul keluar
+      const s = 24 + Math.random() * 14;
+      o = { type: 'hole', x: cx + (Math.random() - 0.5) * (laneW - s), y: -40, w: s, h: s * 0.7, rel: 1, seed: Math.random() };
+    } else {
+      // kenderaan ikut lokasi semasa
+      const list = LOC().vehicles;
+      const v = pickWeighted(list.map(e => [e, e.weight]));
+      // kenderaan lebar/panjang (lori, bas, jentolak, songthaew) jarang, & tiada dalam 40 saat pertama
+      if (v.type !== 'car' && (elapsed < 40 || Math.random() < 0.55)) return;
+      o = { type: v.type, skin: v.skin, label: v.label, x: cx, y: -v.h / 2 - 50, w: v.w, h: v.h,
+        rel: v.rel[0] + Math.random() * (v.rel[1] - v.rel[0]),
+        color: v.colors[Math.floor(Math.random() * v.colors.length)] };
+    }
+    // jangan muncul di atas kenderaan lain (berlaku bila pemain brek: kenderaan depan bergerak naik ke kawasan spawn)
+    for (const q of obstacles) {
+      if (q.type === 'ambulance') continue;
+      if (Math.abs(q.x - o.x) < (q.w + o.w) / 2 + 4 && Math.abs(q.y - o.y) < (q.h + o.h) / 2 + 40) return;
+    }
+    // pastikan sentiasa ada sekurang-kurangnya satu lorong terbuka (lubang tak dikira — ia tak bunuh)
+    if (o.type !== 'hole') {
+      const bl = blockedLanes(o.y, passBand());
+      bl.add(lane);
+      if (bl.size >= LANES) return;
+      // lorong selamat: kenderaan & haiwan baru tak pernah masuk lorong ni
+      if (lane === safeLane) return;
+    }
+    obstacles.push(o);
+  }
+
+  // ---------- Lorong selamat ----------
+  // Satu lorong sentiasa bebas daripada kenderaan & haiwan baru, jadi jalan tak pernah tersekat sepenuhnya.
+  // Ia beralih ke lorong sebelah sekali-sekala — hanya bila lorong baru itu kosong dari atas skrin hingga paras pemain.
+  function laneOfX(x) { return Math.max(0, Math.min(LANES - 1, Math.floor((x - roadX) / laneW))); }
+  function laneClearAhead(l) {
+    for (const q of obstacles) {
+      const veh = q.type === 'car' || q.type === 'lorry' || q.type === 'bus';
+      const ani = q.type === 'animal' && !q.fleeing;
+      if (!veh && !ani) continue;
+      if (q.y - q.h / 2 > player.y + 40) continue; // dah lepas ke belakang
+      if (laneOfX(q.x) === l || (ani && q.targetX !== undefined && laneOfX(q.targetX) === l)) return false;
+    }
+    return true;
+  }
+  function updateSafeLane() {
+    if (elapsed < nextSafeSwitch) return;
+    const cands = [safeLane - 1, safeLane + 1].filter(l => l >= 0 && l < LANES).sort(() => Math.random() - 0.5);
+    const ok = cands.find(laneClearAhead);
+    if (ok !== undefined) { safeLane = ok; nextSafeSwitch = elapsed + 3 + Math.random() * 4; }
+    else nextSafeSwitch = elapsed + 0.5; // cuba lagi sekejap lagi
+  }
+
+  // Jarak "satu barisan" yang pemain perlu lalui serentak: makin laju, makin panjang
+  // (masa untuk belok merentas lorong ~0.6 s, jadi jalur ni ikut kelajuan)
+  function passBand() { return 160 + speed * 0.5; }
+  // lorong mana yang tersekat oleh kenderaan / haiwan berhampiran paras y
+  function blockedLanes(y, half) {
+    const set = new Set();
+    const laneOf = x => Math.max(0, Math.min(LANES - 1, Math.floor((x - roadX) / laneW)));
+    for (const q of obstacles) {
+      const veh = q.type === 'car' || q.type === 'lorry' || q.type === 'bus';
+      const ani = q.type === 'animal' && !q.fleeing;
+      if (!veh && !ani) continue;
+      if (Math.abs(q.y - y) > half + q.h / 2) continue;
+      if (ani && q.targetX !== undefined) set.add(laneOf(q.targetX)); // haiwan akan berhenti di lorong ni
+      else set.add(laneOf(q.x));
+    }
+    return set;
+  }
+
+  // ---------- Input ----------
+  addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { input.left = true; e.preventDefault(); }
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { input.right = true; e.preventDefault(); }
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') { input.up = true; e.preventDefault(); }
+    if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') { input.down = true; e.preventDefault(); }
+    if ((e.key === 'Enter' || e.key === ' ') && state !== 'play') { e.preventDefault(); startGame(); }
+    if ((e.key === 'm' || e.key === 'M') && !e.repeat) toggleMute();
+  });
+  addEventListener('keyup', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') input.left = false;
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') input.right = false;
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') input.up = false;
+    if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') input.down = false;
+  });
+  // butang sentuh Brek / Pecut (tekan & tahan)
+  [['brakeBtn', 'btnBrake'], ['gasBtn', 'btnGas']].forEach(([id, key]) => {
+    const el = $(id);
+    const on = e => { e.preventDefault(); input[key] = true; el.classList.add('held'); try { el.setPointerCapture(e.pointerId); } catch (_) {} };
+    const off = () => { input[key] = false; el.classList.remove('held'); };
+    el.addEventListener('pointerdown', on);
+    el.addEventListener('pointerup', off);
+    el.addEventListener('pointercancel', off);
+    el.addEventListener('lostpointercapture', off);
+    el.addEventListener('contextmenu', e => e.preventDefault());
+  });
+  function updatePointerInput() {
+    let l = false, r = false;
+    for (const x of pointers.values()) { if (x < W / 2) l = true; else r = true; }
+    input.pointerLeft = l; input.pointerRight = r;
+  }
+  cv.addEventListener('pointerdown', e => { pointers.set(e.pointerId, e.clientX); updatePointerInput(); e.preventDefault(); });
+  cv.addEventListener('pointermove', e => { if (pointers.has(e.pointerId)) { pointers.set(e.pointerId, e.clientX); updatePointerInput(); } });
+  const up = e => { pointers.delete(e.pointerId); updatePointerInput(); };
+  cv.addEventListener('pointerup', up);
+  cv.addEventListener('pointercancel', up);
+  cv.addEventListener('pointerleave', up);
+  addEventListener('blur', () => { input.left = input.right = input.up = input.down = input.btnGas = input.btnBrake = false; pointers.clear(); updatePointerInput(); });
+
+  $('startBtn').onclick = startGame;
+  $('againBtn').onclick = startGame;
+
+  // butang pemilih kenderaan (di skrin mula & Game Over)
+  const pickers = [...document.querySelectorAll('.picker')];
+  for (const pk of pickers) {
+    for (const [key, v] of Object.entries(VEHICLES)) {
+      const b = document.createElement('button');
+      b.className = 'pick'; b.dataset.v = key;
+      b.innerHTML = v.emoji + '<small>' + v.name + '</small>';
+      b.addEventListener('click', () => chooseVehicle(key, true));
+      pk.appendChild(b);
+    }
+  }
+  function chooseVehicle(key, preview) {
+    vehicle = key;
+    try { localStorage.setItem('selitVehicle', key); } catch (e) {}
+    document.querySelectorAll('.pick').forEach(b => b.classList.toggle('sel', b.dataset.v === key));
+    $('logoIcon').textContent = VEHICLES[key].emoji;
+    if (player && state !== 'play') { player.w = VEHICLES[key].w; player.h = VEHICLES[key].h; }
+    if (preview) { initAudio(); previewSound(key); }
+  }
+  chooseVehicle(vehicle, false);
+  addEventListener('keydown', e => {
+    if (state === 'play') return;
+    const k = { '1': 'motor', '2': 'car', '3': 'horse' }[e.key];
+    if (k) chooseVehicle(k, true);
+  });
+
+  function startGame() {
+    reset();
+    pointers.clear(); updatePointerInput();    initAudio();
+    if (vehicle === 'horse') setTimeout(whinny, 250);
+    clearTimeout(overMusicTimer);
+    startMusic('game');
+    state = 'play';
+    document.body.classList.add('playing');
+    $('start').classList.add('hidden');
+    $('over').classList.add('hidden');
+  }
+
+  function gameOver(reason) {
+    state = 'over';
+    document.body.classList.remove('playing');
+    stopSiren();
+    input.btnGas = input.btnBrake = false;
+    $('brakeBtn').classList.remove('held'); $('gasBtn').classList.remove('held');
+    shake = 14;
+    setEngine(0, false);
+    stopMusic();
+    if (vehicle === 'horse') { whinny(); boomSound(); } else crashSound(); // kuda tiada brek tayar & kaca
+    // lepas bunyi brek & kaca habis, mainkan lagu Game Over
+    clearTimeout(overMusicTimer);
+    overMusicTimer = setTimeout(() => { if (state === 'over') startMusic('over'); }, 1800);
+    const m = Math.floor(distance / 10), pts = currentScore();
+    $('reason').textContent = reason;
+    $('finalScore').textContent = m + ' m';
+    $('finalPts').textContent = pts;
+    $('finalCombo').textContent = 'x' + maxCombo;
+    $('finalMissions').textContent = missionsDone;
+    $('finalLoc').textContent = { my: 'Malaysia', farm: 'Ladang', th: 'Thailand' }[LOC().id];
+    $('finalLoc').title = LOC().name;
+    if (m > bestDist) bestDist = m;
+    const isNew = pts > best;
+    if (isNew) { best = pts; $('newBest').textContent = '🏆 Rekod baru!'; }
+    else $('newBest').textContent = 'Terbaik: ' + best;
+    $('newBest').classList.toggle('gold', isNew);
+    saveBest();
+    bestEl.textContent = best;
+    $('startBest').textContent = '🏆 Skor terbaik: ' + best;
+    setTimeout(() => { if (state === 'over') $('over').classList.remove('hidden'); }, 700);
+  }
+
+  // ---------- Update ----------
+  function update(dt) {
+    roadOffset = (roadOffset + speed * dt) % 80;
+    for (const s of scenery) s.y += speed * dt;
+    scenery = scenery.filter(s => s.y < H + 80);
+    while (scenery.length < Math.ceil(H / 90) + 3) {
+      const minY = scenery.reduce((m, s) => Math.min(m, s.y), H);
+      addScenery(minY - 70 - Math.random() * 60);
+    }
+
+    // serpihan letupan & teks timbul
+    for (const p of particles) { p.x += p.vx * dt; p.y += (p.vy + speed * 0.6) * dt; p.vx *= 0.97; p.life -= dt; p.rot += p.vr * dt; }
+    particles = particles.filter(p => p.life > 0);
+    for (const s of smoke) { s.y += (speed * 0.35 + 30) * dt; s.x += s.vx * dt; s.r += 14 * dt; s.life -= dt; }
+    smoke = smoke.filter(s => s.life > 0);
+    if (state === 'play') {
+      smokeT -= dt;
+      if (smokeT <= 0 && vehicle !== 'horse') { // kuda tiada ekzos — debu datang dari tapak kaki
+        const hard = throttle > 0;
+        smokeT = hard ? 0.025 : 0.06;
+        const sy = player.y + player.fy + 32;
+        const pipes = vehicle === 'car' ? [-6, 6] : [8 * Math.cos(player.tilt)];
+        for (const dx of pipes) {
+          smoke.push({ x: player.x + dx, y: sy, vx: (Math.random() - 0.5) * 20, r: 2.5, life: 0.55, max: 0.55, a: hard ? 0.45 : 0.28 });
+        }
+      }
+    }
+    for (const p of popups) { p.y -= 60 * dt; p.life -= dt; }
+    popups = popups.filter(p => p.life > 0);
+    if (shake > 0) shake *= 0.9;
+    updateWeather(dt);
+
+    if (state !== 'play') return;
+
+    elapsed += dt;
+    // laju asas masih naik sendiri (auto); pemain boleh pecut (x1.4) atau brek (x0.5)
+    // rampT = "masa kelajuan": naik setiap saat, dikurangkan bila siap misi → laju turun semula (beransur, bukan mengejut)
+    rampT += dt;
+    const targetBase = Math.min(300 + rampT * 3.5, 800); // ~1 km/j setiap 1.5 saat, maks 160 km/j
+    baseSpeed += (targetBase - baseSpeed) * Math.min(1, dt * 1.2);
+    const gas = input.up || input.btnGas, brk = input.down || input.btnBrake;
+    const target = brk ? 0.5 : gas ? 1.4 : 1;
+    const rate = brk ? 2.2 : target > mult ? 0.9 : 1.2; // brek mencengkam lebih cepat
+    mult += Math.sign(target - mult) * Math.min(Math.abs(target - mult), rate * dt);
+    if (brk && !wasBraking && mult > 0.85) (vehicle === 'horse' ? snort : brakeSound)();
+    if (vehicle === 'horse') {
+      updateHooves(dt);
+      // kuda meringkik bila dipacu (tak terlalu kerap)
+      neighCd -= dt;
+      if (gas && !lastGas && neighCd <= 0) { whinny(); neighCd = 6; }
+      lastGas = gas;
+    }
+    wasBraking = brk;
+    throttle = brk ? -1 : gas ? 1 : 0;
+    speed = baseSpeed * mult;
+    distance += speed * dt;
+
+    // gerak pemain
+    const goL = input.left || input.pointerLeft, goR = input.right || input.pointerRight;
+    // masuk lubang: hilang kawalan sekejap — stereng lemah + motor terhuyung-hayang
+    const wobbling = elapsed < wobbleUntil;
+    const steer = (260 + speed * 0.35) * (wobbling ? 0.4 : 1);
+    let dir = (goR ? 1 : 0) - (goL ? 1 : 0);
+    player.x += dir * steer * dt;
+    if (wobbling) {
+      const k = (wobbleUntil - elapsed) / WOBBLE_TIME; // makin lama makin stabil
+      player.x += Math.sin(elapsed * 17 + wobbleSeed) * 160 * k * dt;
+      player.tilt += Math.sin(elapsed * 23) * 0.06 * k;
+    }
+    // lantunan bila tergesel tepi halangan (beransur hilang)
+    player.x += player.bx * dt;
+    player.bx *= Math.exp(-dt * 7);
+    player.fy *= Math.exp(-dt * 5); // kembali ke kedudukan asal lepas ditolak ambulans
+    player.tilt += (dir * 0.25 + player.bx * 0.0012 - player.tilt) * Math.min(1, dt * 10);
+    const minX = roadX + player.w / 2 + 4, maxX = roadX + roadW - player.w / 2 - 4;
+    player.x = Math.max(minX, Math.min(maxX, player.x));
+    updateLineBalance(dt);
+
+    updateSafeLane();
+    // spawn ikut jarak
+    nextSpawn -= speed * dt;
+    if (nextSpawn <= 0) {
+      spawn();
+      // kesesakan ikut rampT juga — siap misi = jalan lebih lapang
+      if (rampT > 90 && Math.random() < 0.15) spawn();
+      const gap = Math.max(220, 450 - rampT * 1.5);
+      nextSpawn = gap + Math.random() * gap * 0.6;
+    }
+
+    // haiwan: jarang-jarang, lebih kerap sikit bila makin lama
+    if (warn && warn.a && elapsed >= warn.spawnAt) releaseAnimal();
+    if (elapsed > nextAnimal) {
+      spawnAnimal();
+      nextAnimal = elapsed + Math.max(12, 30 - elapsed * 0.05) + Math.random() * 15;
+    }
+
+    // power-up: jarang-jarang
+    if (elapsed > nextPower) {
+      spawnPower();
+      nextPower = elapsed + 25 + Math.random() * 15;
+    }
+    // ambulans: sekali-sekala
+    if (!amb && elapsed > nextAmb) {
+      spawnAmbulance();
+      nextAmb = elapsed + 35 + Math.random() * 25;
+    }
+
+    for (const o of obstacles) {
+      // setiap benda ada laju sendiri (vs): lubang/haiwan/power = 0, kenderaan bergerak ke depan.
+      // Bila pemain brek, kenderaan boleh tinggalkan pemain (bergerak ke atas skrin).
+      if (o.vs === undefined) o.vs = o.rel === 1 ? 0 : baseSpeed * (1 - o.rel);
+      o.y += (speed - o.vs) * dt;
+      if (o.t !== undefined) o.t += dt;
+      if (o.vx) {
+        o.x += o.vx * dt;
+        // haiwan berhenti bila sampai lorong sasaran
+        if (o.targetX !== undefined && (o.vx > 0 ? o.x >= o.targetX : o.x <= o.targetX)) {
+          o.x = o.targetX; o.vx = 0; o.stopped = true;
+        }
+      }
+    }
+    // buang yang dah lepas ke belakang / jauh ke depan (ambulans datang dari bawah, jadi dikecualikan)
+    obstacles = obstacles.filter(o => (o.type === 'ambulance' || o.y - o.h / 2 < H + 20) && o.y > -400);
+
+    // elak kenderaan bertindih dalam lorong sama
+    for (let i = 0; i < obstacles.length; i++) for (let j = 0; j < obstacles.length; j++) {
+      const a = obstacles[i], b = obstacles[j];
+      if (a === b || a.rel === 1 || b.rel === 1 || Math.abs(a.x - b.x) > 5) continue; // hanya kenderaan
+      // b di depan a (lebih atas skrin); kalau dah rapat, a (yang belakang) ikut laju b
+      if (b.y < a.y && a.y - b.y < (a.h + b.h) / 2 + 10) {
+        if (b.vs < a.vs) a.vs = b.vs;
+        // kalau dah bertindih, tolak b (yang depan) ke depan — jauh dari pemain, jadi tak timbul eksiden mengejut
+        const minGap = (a.h + b.h) / 2 + 6;
+        if (a.y - b.y < minGap) b.y = a.y - minGap;
+      }
+    }
+
+    vehicleAnimalImpacts(dt);
+    // haiwan yang dah lari keluar skrin dibuang
+    obstacles = obstacles.filter(o => !(o.type === 'animal' && o.fleeing && (o.x < -80 || o.x > W + 80)));
+
+    // tembak: peluru automatik ke depan
+    if (elapsed < gunUntil) {
+      fireCd -= dt;
+      if (fireCd <= 0) {
+        fireCd = 0.15;
+        bullets.push({ x: player.x - 7, y: player.y - 36 }, { x: player.x + 7, y: player.y - 36 });
+        shootSound();
+      }
+    }
+    for (const b of bullets) {
+      b.y -= 1100 * dt;
+      for (const o of obstacles) {
+        if (o.dead || o.type === 'power' || o.type === 'ambulance' || o.y < -20) continue;
+        if (Math.abs(b.x - o.x) < o.w / 2 + 3 && Math.abs(b.y - o.y) < o.h / 2 + 10) { b.dead = true; destroy(o); break; }
+      }
+    }
+    bullets = bullets.filter(b => !b.dead && b.y > -30);
+
+    // langgar?
+    const px = player.x, py = player.y + player.fy, pw = player.w * 0.7, ph = player.h * 0.8;
+    for (const o of obstacles) {
+      if (o.dead) continue;
+      if (o.type === 'animal' && o.fleeing) continue; // haiwan yang sedang lari keluar jalan tak dikira
+      const sx = o.type === 'hole' ? 0.6 : o.type === 'animal' ? 0.7 : o.type === 'power' ? 1.1 : 0.85;
+      const sy = o.type === 'hole' ? 0.55 : o.type === 'animal' ? 0.7 : o.type === 'power' ? 1.1 : 0.9;
+      const ovX = (pw + o.w * sx) / 2 - Math.abs(px - o.x); // berapa dalam bertindih secara mendatar
+      const ovY = (ph + o.h * sy) / 2 - Math.abs(py - o.y); // ... dan secara menegak
+      if (ovX > 0 && ovY > 0) {
+        if (o.type === 'ambulance') { ambulanceHit(o, py, ph); continue; } // tak pernah eksiden / hilang nyawa
+        if (o.type === 'power') { collect(o); continue; }
+        if (elapsed < shieldUntil) { destroy(o); continue; } // perisai: rempuh je!
+        // lubang: bukan eksiden — motor terhentak & hilang kawalan sekejap (sekali bagi setiap lubang)
+        if (o.type === 'hole') { if (!o.hit) { o.hit = true; hitHole(o); } continue; }
+        if (o.lastBump !== undefined && elapsed - o.lastBump < 0.3) continue; // baru melantun dari benda ni
+        // tergesel dari tepi (tindihan mendatar lebih kecil) → melantun ke tepi, game diteruskan
+        // (dirempuh dari belakang semasa brek pun dikira gesel, bukan eksiden)
+        // haiwan: tiada gesel — langgar dari mana-mana arah terus eksiden
+        if (o.type !== 'animal' && (ovX < ovY || o.y > py)) {
+          let side = px < o.x ? -1 : 1;
+          const need = (pw + o.w * sx) / 2 + 2;
+          const loX = roadX + player.w / 2 + 4, hiX = roadX + roadW - player.w / 2 - 4;
+          // tersepit di tepi jalan? lantun ke sebelah lagi satu
+          if ((side < 0 && o.x - need < loX) || (side > 0 && o.x + need > hiX)) side = -side;
+          player.x = Math.max(loX, Math.min(hiX, o.x + side * need));
+          player.bx = side * 300;
+          o.lastBump = elapsed;
+          shake = Math.max(shake, 5);
+          bump(px + side * -pw / 2, py - 10, o);
+          missionEvent('bump');
+          // tolak satu nyawa (ada masa "kebal" 1 saat supaya satu geselan tak makan banyak nyawa)
+          if (elapsed >= graceUntil) {
+            lives--;
+            combo = 0; // hilang nyawa putuskan combo
+            addPoints(-GESEL_PENALTY, '-' + GESEL_PENALTY, player.x + 34, player.y + 20, '#ff5252');
+            graceUntil = elapsed + 1;
+            popups.push({ x: player.x, y: player.y + 45, text: '-1 ❤️', color: '#ff5252', life: 1 });
+            if (lives <= 0) {
+              crash = { x: player.x, y: py - 10 };
+              gameOver('Nyawa habis! Asyik gesel je 😵');
+              break;
+            }
+          }
+          continue;
+        }
+        // langgar dari depan → eksiden
+        crash = { x: px, y: py - 10 };
+        const msg = { car: 'Langgar belakang kereta! 🚗', lorry: 'Langgar belakang lori! 🚚', bus: 'Langgar belakang bas! 🚌' };
+        gameOver(o.type === 'animal' ? 'Langgar ' + o.name + '! ' + o.emoji
+          : o.label ? 'Langgar belakang ' + o.label + '! 💥' : msg[o.type]);
+        break;
+      }
+    }
+    obstacles = obstacles.filter(o => !o.dead);
+    if (state === 'play') { checkNearMiss(); checkCutIn(); trackPasses(); updateMission(dt); updateLocation(dt); }
+    updateAmbulance();
+
+    if (state !== 'play') return; // dah langgar: jangan hidupkan enjin semula
+    setEngine(speed, true);
+    scoreEl.textContent = currentScore();
+    distEl.textContent = Math.floor(distance / 10) + ' m' + (locIdx ? ' ' + LOC().flag : '') + (combo > 1 && elapsed < comboUntil ? '  🔥x' + combo : '');
+    spdEl.textContent = Math.round(speed / 5) + ' km/j' + (vehicle === 'horse' ? ' · 🐎' : ' · G' + (gear + 1));
+  }
+
+  // ---------- Lukis ----------
+  function rr(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+
+  function drawRoad() {
+    // rumput, bahu jalan & tar bertekstur yang bergerak bersama jalan
+    ctx.save(); ctx.translate(0, roadOffset);
+    ctx.fillStyle = tex.grass; ctx.fillRect(0, -80, W, H + 80);
+    ctx.fillStyle = tex.shoulder; ctx.fillRect(roadX - 12, -80, roadW + 24, H + 80);
+    ctx.restore();
+    ctx.fillStyle = tex.asphaltGrad; ctx.fillRect(roadX, 0, roadW, H);
+    ctx.save(); ctx.translate(0, roadOffset);
+    ctx.fillStyle = tex.asphalt; ctx.fillRect(roadX, -80, roadW, H + 80);
+    ctx.restore();
+    const L = LOC();
+    // kesan tayar di setiap lorong (jalan tanah: alur roda yang dalam)
+    const dirt = L.lines === 'ruts';
+    ctx.fillStyle = dirt ? 'rgba(60,20,5,.22)' : 'rgba(0,0,0,.09)';
+    for (let i = 0; i < LANES; i++) {
+      const cx = roadX + laneW * (i + 0.5);
+      ctx.fillRect(cx - (dirt ? 17 : 14), 0, dirt ? 10 : 7, H); ctx.fillRect(cx + 7, 0, dirt ? 10 : 7, H);
+    }
+    if (dirt) {
+      // rumput liar di tengah antara alur roda
+      ctx.fillStyle = 'rgba(70,120,40,.35)';
+      for (let i = 0; i < LANES; i++) {
+        const cx = roadX + laneW * (i + 0.5);
+        for (let y = -80 + roadOffset; y < H; y += 80) { rr(cx - 3, y + 10, 6, 26, 3); ctx.fill(); }
+      }
+    }
+    // bayang tepi jalan
+    ctx.fillStyle = tex.edgeL; ctx.fillRect(roadX, 0, 22, H);
+    ctx.fillStyle = tex.edgeR; ctx.fillRect(roadX + roadW - 22, 0, 22, H);
+    // kerb (Malaysia hitam-putih, Thailand merah-putih; jalan ladang tiada kerb)
+    if (L.kerb) {
+      for (let y = -40 + (roadOffset % 40); y < H; y += 40) {
+        const alt = Math.floor((y - roadOffset) / 40) % 2 === 0;
+        ctx.fillStyle = alt ? L.kerb[0] : L.kerb[1];
+        ctx.fillRect(roadX - 12, y, 8, 20); ctx.fillRect(roadX + roadW + 4, y, 8, 20);
+        ctx.fillStyle = alt ? L.kerb[1] : L.kerb[0];
+        ctx.fillRect(roadX - 12, y + 20, 8, 20); ctx.fillRect(roadX + roadW + 4, y + 20, 8, 20);
+      }
+      // garisan tepi
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(roadX + 3, 0, 3, H); ctx.fillRect(roadX + roadW - 6, 0, 3, H);
+    }
+    // garisan lorong (Thailand: garis tengah kuning putus-putus)
+    if (!dirt) {
+      for (let i = 1; i < LANES; i++) {
+        const lx = roadX + laneW * i;
+        const yellow = L.lines === 'thai' && i === LANES / 2;
+        for (let y = -80 + roadOffset; y < H; y += 80) {
+          ctx.fillStyle = yellow ? '#fdd835' : 'rgba(240,240,240,.92)'; rr(lx - 2, y, 4, 40, 2); ctx.fill();
+          // mata kucing (reflektor) antara garisan
+          ctx.fillStyle = '#ffca28'; rr(lx - 2, y + 58, 4, 4, 1); ctx.fill();
+        }
+      }
+    }
+  }
+
+  function drawScenery() {
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const sideW = roadX - 12;
+    for (const s of scenery) {
+      const x = s.side < 0 ? Math.max(18, sideW - 20 - s.off) : Math.min(W - 18, roadX + roadW + 32 + s.off);
+      if (sideW < 30) continue; // skrin terlalu sempit
+      if (s.kind === 'sign') {
+        ctx.fillStyle = '#555'; ctx.fillRect(x - 2, s.y, 4, 22);
+        ctx.font = 'bold 9px system-ui';
+        const sw = Math.max(52, ctx.measureText(s.town).width + 10);
+        ctx.fillStyle = s.signColor || '#1b5e20'; rr(x - sw / 2, s.y - 22, sw, 26, 4); ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = '#fff';
+        ctx.fillText(s.town, x, s.y - 14); ctx.fillText(s.km + ' ' + (s.unit || 'km'), x, s.y - 4);
+      } else {
+        const size = { '🏠': 34, '🏡': 34, '🕌': 36, '🛕': 36, '🛖': 32, '🌺': 22, '🍜': 24, '🛺': 26, '🚜': 28 }[s.kind] || 30;
+        // bayang lembut di tanah
+        ctx.fillStyle = 'rgba(0,40,0,.25)';
+        ctx.beginPath(); ctx.ellipse(x + 4, s.y + size * 0.4, size * 0.38, size * 0.12, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.font = size + 'px serif';
+        ctx.fillStyle = '#000'; // emoji ikut alpha fillStyle — mesti legap
+        ctx.fillText(s.kind, x, s.y);
+      }
+    }
+  }
+
+  function drawHole(o) {
+    ctx.save(); ctx.translate(o.x, o.y);
+    if (LOC().hole === 'mud') {
+      // lopak lumpur di jalan tanah merah
+      ctx.fillStyle = '#4e2a12'; ctx.beginPath(); ctx.ellipse(0, 0, o.w / 2 + 5, o.h / 2 + 4, o.seed, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#6d3d1c'; ctx.beginPath(); ctx.ellipse(0, 0, o.w / 2, o.h / 2, o.seed, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(200,150,100,.35)'; ctx.beginPath(); ctx.ellipse(-3, -2, o.w / 4, o.h / 6, o.seed, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      return;
+    }
+    ctx.fillStyle = '#5d4037'; ctx.beginPath(); ctx.ellipse(0, 0, o.w / 2 + 3, o.h / 2 + 3, o.seed, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#1a1a1a'; ctx.beginPath(); ctx.ellipse(0, 0, o.w / 2, o.h / 2, o.seed, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(80,140,200,.55)'; ctx.beginPath(); ctx.ellipse(-2, 1, o.w / 3.2, o.h / 3.5, o.seed, 0, Math.PI * 2); ctx.fill();
+    // retak
+    ctx.strokeStyle = '#2b2b2b'; ctx.lineWidth = 1.5; ctx.beginPath();
+    ctx.moveTo(o.w / 2, 0); ctx.lineTo(o.w / 2 + 8, -5); ctx.moveTo(-o.w / 2, 2); ctx.lineTo(-o.w / 2 - 7, 7); ctx.stroke();
+    ctx.restore();
+  }
+
+  // isi bentuk dengan bayang lembut di bawahnya
+  function softFill(color, x, y, w, h, r) {
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 10; ctx.shadowOffsetX = 3; ctx.shadowOffsetY = 6;
+    ctx.fillStyle = color; rr(x, y, w, h, r); ctx.fill();
+    ctx.restore();
+  }
+  // kilauan logam: gelap di tepi, terang di sebelah kiri tengah
+  function shade(x, y, w, h, r) {
+    const g = ctx.createLinearGradient(x, 0, x + w, 0);
+    g.addColorStop(0, 'rgba(0,0,0,.28)'); g.addColorStop(0.3, 'rgba(255,255,255,.22)');
+    g.addColorStop(0.55, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(0,0,0,.25)');
+    ctx.fillStyle = g; rr(x, y, w, h, r); ctx.fill();
+  }
+  function glass(x, y, w, h, r) {
+    const g = ctx.createLinearGradient(0, y, 0, y + h);
+    g.addColorStop(0, '#3e5868'); g.addColorStop(1, '#17232b');
+    ctx.fillStyle = g; rr(x, y, w, h, r); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x + w * 0.2, y + h - 2); ctx.lineTo(x + w * 0.45, y + 2); ctx.stroke();
+  }
+  function wheels(w, h, y1, y2) {
+    ctx.fillStyle = '#141414';
+    for (const yy of [y1, y2]) { rr(-w / 2 - 2.5, yy, 5, 14, 2); ctx.fill(); rr(w / 2 - 2.5, yy, 5, 14, 2); ctx.fill(); }
+  }
+
+  // ---------- Rupa kenderaan lokasi lain (dilukis pada koordinat tempatan, muka ke atas) ----------
+  const SKINS = {
+    // 🛻 pikap: kabin depan + bak terbuka berisi buah sawit
+    pickup(o, w, h, color) {
+      wheels(w, h, -h / 2 + 9, h / 2 - 22);
+      softFill(color, -w / 2, -h / 2, w, h, 7); shade(-w / 2, -h / 2, w, h, 7);
+      glass(-w / 2 + 5, -h / 2 + 10, w - 10, 11, 3);
+      ctx.fillStyle = 'rgba(0,0,0,.15)'; rr(-w / 2 + 5, -h / 2 + 23, w - 10, 10, 2); ctx.fill();
+      ctx.fillStyle = '#3e2723'; rr(-w / 2 + 4, -h / 2 + 36, w - 8, h - 40, 3); ctx.fill(); // bak
+      const seed = (o.x * 7) % 5;
+      for (let i = 0; i < 6; i++) { // tandan sawit
+        ctx.fillStyle = i % 2 ? '#e65100' : '#b71c1c';
+        ctx.beginPath(); ctx.arc(-w / 4 + (i % 3) * (w / 4), -h / 2 + 44 + Math.floor(i / 3) * 12 + seed, 4.5, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = '#fff59d'; ctx.fillRect(-w / 2 + 3, -h / 2 + 2, 6, 3); ctx.fillRect(w / 2 - 9, -h / 2 + 2, 6, 3);
+      ctx.fillStyle = '#ff1744'; ctx.fillRect(-w / 2 + 2, h / 2 - 4, 6, 3); ctx.fillRect(w / 2 - 8, h / 2 - 4, 6, 3);
+    },
+    // 🏍️ motor cross: kecil, tayar bergerigi, penunggang helmet berwarna
+    dirtbike(o, w, h, color) {
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 4;
+      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(0, 0, 9, 22, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      ctx.fillStyle = '#111'; rr(-3.5, -h / 2, 7, 13, 3); ctx.fill(); rr(-4, h / 2 - 13, 8, 13, 3); ctx.fill();
+      ctx.strokeStyle = '#444'; ctx.lineWidth = 1;
+      for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-4, -h / 2 + 2 + i * 3); ctx.lineTo(4, -h / 2 + 2 + i * 3); ctx.stroke(); }
+      ctx.fillStyle = color; rr(-5, -h / 2 + 8, 10, h - 16, 4); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, -h / 2 + 10, 3, 0, Math.PI * 2); ctx.fill(); // plat nombor
+      ctx.strokeStyle = '#222'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-10, -h / 2 + 15); ctx.lineTo(10, -h / 2 + 15); ctx.stroke();
+      ctx.fillStyle = '#37474f'; rr(-8, -5, 16, 11, 5); ctx.fill();
+      ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, -2, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.fillRect(-1, -8, 2, 12);
+    },
+    // 🚜 traktor: tayar belakang besar, enjin depan, tempat duduk terbuka
+    tractor(o, w, h, color) {
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 5;
+      ctx.fillStyle = 'rgba(0,0,0,.25)'; rr(-w / 2, -h / 2, w, h, 6); ctx.fill(); ctx.restore();
+      ctx.fillStyle = '#151515';
+      rr(-w / 2 - 3, h / 2 - 26, 10, 24, 3); ctx.fill(); rr(w / 2 - 7, h / 2 - 26, 10, 24, 3); ctx.fill();
+      rr(-w / 2 + 2, -h / 2 + 4, 6, 12, 2); ctx.fill(); rr(w / 2 - 8, -h / 2 + 4, 6, 12, 2); ctx.fill();
+      ctx.strokeStyle = '#3a3a3a'; ctx.lineWidth = 1.5;
+      for (let i = 0; i < 5; i++) {
+        const yy = h / 2 - 24 + i * 5;
+        ctx.beginPath(); ctx.moveTo(-w / 2 - 3, yy); ctx.lineTo(-w / 2 + 7, yy); ctx.moveTo(w / 2 - 7, yy); ctx.lineTo(w / 2 + 3, yy); ctx.stroke();
+      }
+      ctx.fillStyle = color; rr(-9, -h / 2, 18, 30, 4); ctx.fill(); shade(-9, -h / 2, 18, 30, 4); // enjin
+      ctx.fillStyle = '#212121'; ctx.beginPath(); ctx.arc(5, -h / 2 + 8, 2.5, 0, Math.PI * 2); ctx.fill(); // ekzos
+      ctx.fillStyle = color; rr(-w / 2 + 6, h / 2 - 28, w - 12, 22, 4); ctx.fill();
+      ctx.fillStyle = '#263238'; rr(-6, h / 2 - 22, 12, 10, 3); ctx.fill(); // kerusi
+      ctx.fillStyle = '#ffd54f'; ctx.beginPath(); ctx.arc(0, h / 2 - 22, 5.5, 0, Math.PI * 2); ctx.fill(); // topi petani
+    },
+    // 🚧 jentolak: rantai besi, bilah besar di depan, kabin
+    dozer(o, w, h, color) {
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 6;
+      ctx.fillStyle = 'rgba(0,0,0,.3)'; rr(-w / 2, -h / 2, w, h, 4); ctx.fill(); ctx.restore();
+      ctx.fillStyle = '#212121'; rr(-w / 2, -h / 2 + 10, 11, h - 12, 3); ctx.fill(); rr(w / 2 - 11, -h / 2 + 10, 11, h - 12, 3); ctx.fill();
+      ctx.strokeStyle = '#4a4a4a'; ctx.lineWidth = 2;
+      const off = (roadOffset * 0.3) % 8;
+      for (let yy = -h / 2 + 12 + off; yy < h / 2 - 2; yy += 8) {
+        ctx.beginPath(); ctx.moveTo(-w / 2 + 1, yy); ctx.lineTo(-w / 2 + 10, yy); ctx.moveTo(w / 2 - 10, yy); ctx.lineTo(w / 2 - 1, yy); ctx.stroke();
+      }
+      ctx.fillStyle = color; rr(-w / 2 + 9, -h / 2 + 14, w - 18, h - 18, 4); ctx.fill(); shade(-w / 2 + 9, -h / 2 + 14, w - 18, h - 18, 4);
+      glass(-9, 4, 18, 14, 3);                                           // kabin
+      ctx.fillStyle = '#212121'; ctx.beginPath(); ctx.arc(9, -8, 3, 0, Math.PI * 2); ctx.fill(); // serombong
+      const bg = ctx.createLinearGradient(0, -h / 2 - 6, 0, -h / 2 + 4);
+      bg.addColorStop(0, '#cfd8dc'); bg.addColorStop(1, '#607d8b');
+      ctx.fillStyle = bg; rr(-w / 2 - 5, -h / 2 - 4, w + 10, 9, 2); ctx.fill();   // bilah
+      ctx.fillStyle = '#455a64'; ctx.fillRect(-w / 2 + 6, -h / 2 + 5, 4, 10); ctx.fillRect(w / 2 - 10, -h / 2 + 5, 4, 10);
+      ctx.fillStyle = '#ff1744'; ctx.fillRect(-w / 2 + 12, h / 2 - 4, 6, 3); ctx.fillRect(w / 2 - 18, h / 2 - 4, 6, 3);
+    },
+    // 🛺 tuk-tuk: roda depan satu, kanopi berwarna, ruang penumpang terbuka
+    tuktuk(o, w, h, color) {
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 5;
+      ctx.fillStyle = 'rgba(0,0,0,.25)'; rr(-w / 2, -h / 2 + 6, w, h - 6, 8); ctx.fill(); ctx.restore();
+      ctx.fillStyle = '#151515';
+      rr(-3.5, -h / 2, 7, 12, 3); ctx.fill();                                       // roda depan
+      rr(-w / 2 - 2.5, h / 2 - 18, 5, 13, 2); ctx.fill(); rr(w / 2 - 2.5, h / 2 - 18, 5, 13, 2); ctx.fill();
+      ctx.fillStyle = '#263238';
+      ctx.beginPath(); ctx.moveTo(-7, -h / 2 + 8); ctx.lineTo(7, -h / 2 + 8); ctx.lineTo(w / 2 - 2, -h / 2 + 22); ctx.lineTo(-w / 2 + 2, -h / 2 + 22); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = color; rr(-w / 2, -h / 2 + 14, w, h - 16, 6); ctx.fill(); shade(-w / 2, -h / 2 + 14, w, h - 16, 6); // kanopi
+      ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillRect(-w / 2 + 2, -h / 2 + 22, w - 4, 3); ctx.fillRect(-w / 2 + 2, h / 2 - 10, w - 4, 3);
+      ctx.fillStyle = '#ffd54f'; ctx.beginPath(); ctx.arc(0, -h / 2 + 9, 2.5, 0, Math.PI * 2); ctx.fill(); // lampu
+      ctx.fillStyle = '#ff1744'; ctx.fillRect(-w / 2 + 3, h / 2 - 4, 5, 3); ctx.fillRect(w / 2 - 8, h / 2 - 4, 5, 3);
+    },
+    // 🚐 songthaew: pikap berbumbung dengan bangku penumpang di belakang
+    songthaew(o, w, h, color) {
+      wheels(w, h, -h / 2 + 10, h / 2 - 24);
+      softFill('#eceff1', -w / 2, -h / 2, w, 30, 7); shade(-w / 2, -h / 2, w, 30, 7);
+      glass(-w / 2 + 5, -h / 2 + 8, w - 10, 11, 3);
+      softFill(color, -w / 2 - 1, -h / 2 + 30, w + 2, h - 30, 5); shade(-w / 2 - 1, -h / 2 + 30, w + 2, h - 30, 5);
+      ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 1.5;
+      for (let yy = -h / 2 + 38; yy < h / 2 - 6; yy += 9) { ctx.beginPath(); ctx.moveTo(-w / 2 + 4, yy); ctx.lineTo(w / 2 - 4, yy); ctx.stroke(); } // rak bumbung
+      ctx.fillStyle = '#fff'; ctx.fillRect(-w / 2 + 2, -h / 2 + 31, w - 4, 3);
+      ctx.fillStyle = '#ff1744'; ctx.fillRect(-w / 2 + 2, h / 2 - 4, 6, 3); ctx.fillRect(w / 2 - 8, h / 2 - 4, 6, 3);
+    },
+  };
+
+  function drawVehicle(o) {
+    const { x, y, w, h, color } = o;
+    ctx.save(); ctx.translate(x, y);
+    if (o.ang) ctx.rotate(o.ang); // kenderaan rosak terpusing
+    if (o.skin && SKINS[o.skin]) {
+      SKINS[o.skin](o, w, h, color);
+    } else if (o.type === 'car') {
+      wheels(w, h, -h / 2 + 10, h / 2 - 24);
+      softFill(color, -w / 2, -h / 2, w, h, 10);
+      shade(-w / 2, -h / 2, w, h, 10);
+      // cermin sisi
+      ctx.fillStyle = color; rr(-w / 2 - 4, -h / 2 + 17, 5, 4, 1.5); ctx.fill(); rr(w / 2 - 1, -h / 2 + 17, 5, 4, 1.5); ctx.fill();
+      glass(-w / 2 + 5, -h / 2 + 14, w - 10, 13, 4);                                   // cermin depan
+      ctx.fillStyle = 'rgba(0,0,0,.14)'; rr(-w / 2 + 6, -h / 2 + 29, w - 12, 20, 3); ctx.fill(); // bumbung
+      ctx.fillStyle = 'rgba(255,255,255,.18)'; rr(-w / 2 + 9, -h / 2 + 31, 5, 16, 2); ctx.fill(); // kilauan bumbung
+      glass(-w / 2 + 6, h / 2 - 17, w - 12, 9, 3);                                      // cermin belakang
+      ctx.fillStyle = '#ff1744'; ctx.fillRect(-w / 2 + 3, h / 2 - 5, 8, 4); ctx.fillRect(w / 2 - 11, h / 2 - 5, 8, 4);
+      ctx.fillStyle = '#fff59d'; ctx.fillRect(-w / 2 + 4, -h / 2 + 2, 7, 4); ctx.fillRect(w / 2 - 11, -h / 2 + 2, 7, 4);
+    } else if (o.type === 'lorry') {
+      wheels(w, h, -h / 2 + 8, h / 2 - 22);
+      softFill('#c62828', -w / 2 + 2, -h / 2, w - 4, 30, 6); shade(-w / 2 + 2, -h / 2, w - 4, 30, 6); // kepala
+      glass(-w / 2 + 6, -h / 2 + 4, w - 12, 9, 2);
+      softFill(color, -w / 2, -h / 2 + 34, w, h - 34, 4); shade(-w / 2, -h / 2 + 34, w, h - 34, 4); // muatan
+      ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 2;
+      for (let i = 1; i < 5; i++) { ctx.beginPath(); ctx.moveTo(-w / 2 + 3, -h / 2 + 34 + i * (h - 34) / 5); ctx.lineTo(w / 2 - 3, -h / 2 + 34 + i * (h - 34) / 5); ctx.stroke(); }
+      ctx.fillStyle = '#ff1744'; ctx.fillRect(-w / 2 + 2, h / 2 - 4, 8, 4); ctx.fillRect(w / 2 - 10, h / 2 - 4, 8, 4);
+    } else { // bas
+      wheels(w, h, -h / 2 + 14, h / 2 - 28);
+      softFill(color, -w / 2, -h / 2, w, h, 8);
+      glass(-w / 2 + 5, -h / 2 + 5, w - 10, 12, 3);
+      ctx.fillStyle = '#e0f2f1'; ctx.fillRect(-w / 2 + 6, -h / 2 + 24, w - 12, h - 40);
+      ctx.fillStyle = '#ffeb3b'; ctx.fillRect(-w / 2, -12, w, 8);
+      ctx.fillStyle = '#e91e63'; ctx.fillRect(-w / 2, -4, w, 8);
+      ctx.fillStyle = '#2979ff'; ctx.fillRect(-w / 2, 4, w, 6);
+      shade(-w / 2, -h / 2, w, h, 8);
+      ctx.fillStyle = '#ff1744'; ctx.fillRect(-w / 2 + 3, h / 2 - 5, 8, 4); ctx.fillRect(w / 2 - 11, h / 2 - 5, 8, 4);
+    }
+    // kelip lampu tinggi bila hon (marah dipotong)
+    if (o.flashUntil > elapsed && Math.floor(elapsed * 10) % 2 === 0) {
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      for (const hx of [-w / 2 + 7, w / 2 - 7]) {
+        const g = ctx.createRadialGradient(hx, -h / 2, 0, hx, -h / 2, 26);
+        g.addColorStop(0, 'rgba(255,250,210,.95)'); g.addColorStop(1, 'rgba(255,250,210,0)');
+        ctx.fillStyle = g; ctx.fillRect(hx - 26, -h / 2 - 26, 52, 52);
+      }
+      ctx.restore();
+    }
+    // kenderaan rosak: bonet kemek + lampu hazard oren berkelip di empat penjuru
+    if (o.wrecked) {
+      ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(-w / 2 + 4, -h / 2 + 4); ctx.lineTo(-2, -h / 2 + 10); ctx.lineTo(5, -h / 2 + 3); ctx.lineTo(w / 2 - 4, -h / 2 + 9); ctx.stroke();
+      if (Math.floor(o.t * 3) % 2 === 0) {
+        ctx.save(); ctx.shadowColor = '#ff9100'; ctx.shadowBlur = 14; ctx.fillStyle = '#ffab40';
+        for (const [hx, hy] of [[-w / 2 + 3, -h / 2 + 3], [w / 2 - 3, -h / 2 + 3], [-w / 2 + 3, h / 2 - 3], [w / 2 - 3, h / 2 - 3]]) {
+          ctx.beginPath(); ctx.arc(hx, hy, 3.5, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
+    ctx.restore();
+  }
+
+  // lampu belakang menyala bila brek (dikongsi motor & kereta)
+  function brakeGlow(xs, y) {
+    if (state === 'play' && throttle < 0) {
+      ctx.save(); ctx.shadowColor = '#ff1744'; ctx.shadowBlur = 18;
+      ctx.fillStyle = '#ff5252'; for (const x of xs) ctx.fillRect(x - 4, y - 1, 8, 5);
+      ctx.fillStyle = 'rgba(255,23,68,.3)'; ctx.beginPath(); ctx.ellipse(0, y + 10, 16, 8, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    } else {
+      ctx.fillStyle = '#ff1744'; for (const x of xs) ctx.fillRect(x - 3, y, 6, 3);
+    }
+  }
+  function exhaustFlame(x, y) {
+    if (!(state === 'play' && throttle > 0)) return;
+    const fl = 10 + Math.random() * 10;
+    ctx.save(); ctx.shadowColor = '#ff9100'; ctx.shadowBlur = 14;
+    ctx.fillStyle = '#ffab00'; ctx.beginPath(); ctx.moveTo(x - 3, y); ctx.lineTo(x, y + fl); ctx.lineTo(x + 3, y); ctx.fill();
+    ctx.fillStyle = '#fff59d'; ctx.beginPath(); ctx.moveTo(x - 1.5, y); ctx.lineTo(x, y + fl * 0.55); ctx.lineTo(x + 1.5, y); ctx.fill();
+    ctx.restore();
+  }
+
+  // 🏎️ kereta sport: merah berkilat, jalur lumba, spoiler, ekzos berkembar
+  function drawSportsCar() {
+    const p = player;
+    ctx.save(); ctx.translate(p.x, p.y + (p.fy || 0)); ctx.rotate(p.tilt * 0.6);
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 12; ctx.shadowOffsetX = 3; ctx.shadowOffsetY = 6;
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; rr(-16, -31, 32, 63, 10); ctx.fill(); ctx.restore();
+    ctx.fillStyle = '#111';
+    for (const yy of [-25, 12]) { rr(-19.5, yy, 6, 14, 2); ctx.fill(); rr(13.5, yy, 6, 14, 2); ctx.fill(); }
+    // badan: muncung tirus
+    const g = ctx.createLinearGradient(-17, 0, 17, 0);
+    g.addColorStop(0, '#7f0000'); g.addColorStop(0.3, '#ff5252'); g.addColorStop(0.5, '#ff8a80'); g.addColorStop(1, '#b71c1c');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(-12, -30); ctx.quadraticCurveTo(0, -36, 12, -30);
+    ctx.lineTo(16.5, -16); ctx.lineTo(16.5, 26); ctx.quadraticCurveTo(16.5, 32, 10, 32);
+    ctx.lineTo(-10, 32); ctx.quadraticCurveTo(-16.5, 32, -16.5, 26); ctx.lineTo(-16.5, -16); ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(80,0,0,.6)'; ctx.lineWidth = 1; ctx.stroke();
+    // jalur lumba
+    ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.fillRect(-5, -33, 3, 65); ctx.fillRect(2, -33, 3, 65);
+    // kokpit
+    glass(-11, -13, 22, 12, 4);
+    ctx.fillStyle = '#1c1c1c'; rr(-10, -1, 20, 13, 3); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.15)'; rr(-8, 1, 4, 9, 2); ctx.fill();
+    glass(-9, 13, 18, 6, 2);
+    // spoiler belakang
+    ctx.fillStyle = '#1a1a1a'; rr(-18, 25, 36, 5, 2); ctx.fill();
+    // lampu depan
+    ctx.fillStyle = '#fffde7'; rr(-13, -29, 7, 3, 1.5); ctx.fill(); rr(6, -29, 7, 3, 1.5); ctx.fill();
+    brakeGlow([-11, 11], 30);
+    exhaustFlame(-6, 32); exhaustFlame(6, 32);
+    ctx.restore();
+  }
+
+  // 🐎 kuda dengan penunggang: kaki berlari, ekor & kepala bergoyang ikut langkah
+  function drawHorse() {
+    const p = player, ph = hoofPhase * Math.PI * 2;
+    const bob = state === 'play' ? Math.sin(ph * 2) * 1.5 : 0;
+    ctx.save(); ctx.translate(p.x, p.y + (p.fy || 0)); ctx.rotate(p.tilt);
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 10;
+    ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(4, 4, 13, 36, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    // kaki (kuku menjenguk di tepi badan, bergerak depan-belakang)
+    ctx.strokeStyle = '#4e342e'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+    for (const [lx, ly, off] of [[-7, -10, 0], [7, -10, 0.15], [-7, 15, 0.5], [7, 15, 0.65]]) {
+      const s = state === 'play' ? Math.sin(ph + off * Math.PI * 2) * 7 : 0;
+      ctx.beginPath(); ctx.moveTo(lx * 0.8, ly); ctx.lineTo(lx * 1.3, ly + s); ctx.stroke();
+      ctx.fillStyle = '#212121'; ctx.beginPath(); ctx.arc(lx * 1.3, ly + s, 2.2, 0, Math.PI * 2); ctx.fill();
+    }
+    // ekor
+    ctx.strokeStyle = '#3e2723'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(0, 26); ctx.quadraticCurveTo(Math.sin(ph) * 7, 34, Math.sin(ph + 1) * 5, 42); ctx.stroke();
+    // badan
+    const g = ctx.createLinearGradient(-11, 0, 11, 0);
+    // bulu perang keemasan (chestnut) supaya jelas atas jalan gelap
+    g.addColorStop(0, '#7a4520'); g.addColorStop(0.3, '#d9995a'); g.addColorStop(0.5, '#e8b67f'); g.addColorStop(1, '#94582a');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 6, 11, 23, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(60,30,10,.55)'; ctx.lineWidth = 1; ctx.stroke();
+    // leher & kepala
+    ctx.fillStyle = '#b8743c'; rr(-4.5, -27 + bob * 0.5, 9, 20, 4); ctx.fill();
+    ctx.fillStyle = '#c98a50'; ctx.beginPath(); ctx.ellipse(0, -33 + bob, 5.5, 8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff3e0'; rr(-1.3, -38 + bob, 2.6, 8, 1.3); ctx.fill(); // jalur putih di muka
+    ctx.fillStyle = '#6d4c41'; ctx.beginPath(); ctx.ellipse(0, -39.5 + bob, 3.8, 3, 0, 0, Math.PI * 2); ctx.fill(); // muncung
+    ctx.fillStyle = '#4e342e';
+    ctx.beginPath(); ctx.moveTo(-4, -29 + bob); ctx.lineTo(-5.5, -24 + bob); ctx.lineTo(-2.5, -26 + bob); ctx.fill(); // telinga
+    ctx.beginPath(); ctx.moveTo(4, -29 + bob); ctx.lineTo(5.5, -24 + bob); ctx.lineTo(2.5, -26 + bob); ctx.fill();
+    ctx.fillStyle = '#3e2723'; rr(-1.5, -28 + bob * 0.5, 3, 18, 1.5); ctx.fill(); // surai
+    // pelana
+    ctx.fillStyle = '#b71c1c'; rr(-8.5, -5, 17, 14, 4); ctx.fill();
+    ctx.strokeStyle = '#ffd54f'; ctx.lineWidth = 1.2; ctx.stroke();
+    // tali kekang
+    ctx.strokeStyle = '#3e2723'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-6, -12); ctx.lineTo(-3, -34 + bob); ctx.moveTo(6, -12); ctx.lineTo(3, -34 + bob); ctx.stroke();
+    // penunggang
+    ctx.fillStyle = '#1565c0'; rr(-11, -6, 22, 13, 6); ctx.fill();
+    ctx.strokeStyle = '#1565c0'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-9, -3); ctx.lineTo(-6, -12); ctx.moveTo(9, -3); ctx.lineTo(6, -12); ctx.stroke();
+    ctx.fillStyle = '#ffd54f'; ctx.beginPath(); ctx.arc(0, -1, 7.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#263238'; ctx.beginPath(); ctx.arc(0, -3, 5, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.beginPath(); ctx.ellipse(-3, 1.5, 2.2, 1.3, -0.6, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawPlayer() {
+    if (vehicle === 'car') return drawSportsCar();
+    if (vehicle === 'horse') return drawHorse();
+    const p = player;
+    ctx.save(); ctx.translate(p.x, p.y + (p.fy || 0)); ctx.rotate(p.tilt);
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 10;
+    ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(4, 6, 12, 36, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    // tayar
+    ctx.fillStyle = '#111'; rr(-4, -37, 8, 16, 3); ctx.fill(); rr(-4.5, 21, 9, 17, 3); ctx.fill();
+    // badan motor
+    // rose gold berkilat
+    const rg = ctx.createLinearGradient(-8, 0, 8, 0);
+    rg.addColorStop(0, '#8e5a5f'); rg.addColorStop(0.35, '#e8b4a8');
+    rg.addColorStop(0.55, '#f7d9cf'); rg.addColorStop(1, '#b76e79');
+    ctx.fillStyle = rg; rr(-8, -26, 16, 52, 7); ctx.fill();
+    ctx.strokeStyle = '#7a4a50'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = 'rgba(255,240,235,.85)'; ctx.fillRect(-1, -24, 2, 46);
+    // tempat duduk
+    ctx.fillStyle = '#2b2b2b'; rr(-5.5, 6, 11, 14, 4); ctx.fill();
+    // lampu depan
+    ctx.fillStyle = '#fff59d'; ctx.beginPath(); ctx.arc(0, -27, 3.5, 0, Math.PI * 2); ctx.fill();
+    // handle
+    ctx.strokeStyle = '#222'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-13, -17); ctx.lineTo(13, -17); ctx.stroke();
+    // penunggang: bahu + helmet
+    ctx.fillStyle = '#1565c0'; rr(-11, -6, 22, 14, 6); ctx.fill();
+    ctx.strokeStyle = '#1565c0'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(-9, -3); ctx.lineTo(-12, -16); ctx.moveTo(9, -3); ctx.lineTo(12, -16); ctx.stroke();
+    ctx.fillStyle = '#ffd54f'; ctx.beginPath(); ctx.arc(0, -1, 7.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#263238'; ctx.beginPath(); ctx.arc(0, -3, 5, Math.PI, 0); ctx.fill();
+    // kilauan helmet
+    ctx.fillStyle = 'rgba(255,255,255,.6)';
+    ctx.beginPath(); ctx.ellipse(-3, 1.5, 2.2, 1.3, -0.6, 0, Math.PI * 2); ctx.fill();
+    // lampu belakang (menyala terang bila brek)
+    if (state === 'play' && throttle < 0) {
+      ctx.save(); ctx.shadowColor = '#ff1744'; ctx.shadowBlur = 18;
+      ctx.fillStyle = '#ff5252'; ctx.fillRect(-5, 23, 10, 5);
+      ctx.fillStyle = 'rgba(255,23,68,.35)'; ctx.beginPath(); ctx.ellipse(0, 34, 12, 8, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    } else {
+      ctx.fillStyle = '#ff1744'; ctx.fillRect(-3, 24, 6, 3);
+    }
+    // api ekzos bila pecut
+    if (state === 'play' && throttle > 0) {
+      const fl = 10 + Math.random() * 10;
+      ctx.save(); ctx.shadowColor = '#ff9100'; ctx.shadowBlur = 14;
+      ctx.fillStyle = '#ffab00';
+      ctx.beginPath(); ctx.moveTo(4, 30); ctx.lineTo(8, 30 + fl); ctx.lineTo(10, 30); ctx.fill();
+      ctx.fillStyle = '#fff59d';
+      ctx.beginPath(); ctx.moveTo(5.5, 30); ctx.lineTo(8, 30 + fl * 0.55); ctx.lineTo(9, 30); ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  function draw() {
+    ctx.save();
+    if (shake > 0.5) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+    drawRoad();
+    drawScenery();
+    for (const o of obstacles) if (o.type === 'hole') drawHole(o);
+    for (const o of obstacles) if (o.type === 'power') drawPower(o);
+    for (const o of obstacles) if (o.type === 'car' || o.type === 'lorry' || o.type === 'bus') drawVehicle(o);
+    for (const o of obstacles) if (o.type === 'animal') drawAnimal(o);
+    for (const o of obstacles) if (o.type === 'ambulance') drawAmbulance(o);
+    // garis laju bila makin pantas
+    if (state === 'play' && speed > 420) {
+      ctx.strokeStyle = 'rgba(255,255,255,' + Math.min(0.35, (speed - 420) / 900) + ')';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const x = roadX + 10 + ((i * 137) % (roadW - 20));
+        const y = ((i * 211 + roadOffset * 4) % (H + 120)) - 60;
+        ctx.moveTo(x, y); ctx.lineTo(x, y + 50);
+      }
+      ctx.stroke();
+    }
+    // asap ekzos
+    for (const s of smoke) {
+      ctx.fillStyle = 'rgba(' + (s.col || '225,225,235') + ',' + (s.life / s.max * s.a) + ')';
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+    }
+    // berkelip semasa masa kebal lepas hilang nyawa
+    if (!(state === 'play' && elapsed < graceUntil && Math.floor(elapsed * 12) % 2)) drawPlayer();
+    drawWeather();
+    // amaran duduk atas garisan terlalu lama (berkelip makin laju)
+    if (state === 'play' && lineTime > 0.8) {
+      const k = lineTime / LINE_LIMIT;
+      if (Math.floor(elapsed * (6 + k * 10)) % 2 === 0) {
+        ctx.font = 'bold 14px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.lineWidth = 4; ctx.strokeStyle = '#1a1033';
+        ctx.strokeText('⚠️ Atas garisan!', player.x, player.y - 58);
+        ctx.fillStyle = '#ffd740'; ctx.fillText('⚠️ Atas garisan!', player.x, player.y - 58);
+      }
+    }
+    drawPowerEffects();
+    // vignette lembut, sedikit ungu senja di tepi
+    ctx.drawImage(tex.vignette, 0, 0, W, H);
+    // amaran haiwan (berkelip)
+    if (warn && state === 'play' && elapsed < warn.until && Math.floor(elapsed * 5) % 2 === 0) {
+      ctx.font = 'bold 18px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const tw = ctx.measureText(warn.text).width + 28, by = 128;
+      ctx.fillStyle = '#ffd600'; rr(W / 2 - tw / 2, by - 18, tw, 36, 10); ctx.fill();
+      ctx.strokeStyle = '#212121'; ctx.lineWidth = 3; ctx.stroke();
+      ctx.fillStyle = '#212121'; ctx.fillText(warn.text, W / 2, by + 1);
+      // anak panah: di sebelah haiwan datang, menunjuk arah ia melintas
+      ctx.font = 'bold 34px system-ui'; ctx.fillStyle = '#ffd600';
+      ctx.fillText(warn.dir > 0 ? '➡' : '⬅', warn.dir > 0 ? roadX + 26 : roadX + roadW - 26, 190);
+    }
+    // nyawa (hati) di bawah kotak JARAK
+    if (state !== 'start') {
+      ctx.font = '17px serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000';
+      for (let i = 0; i < MAX_LIVES; i++) {
+        ctx.globalAlpha = i < lives ? 1 : 0.3;
+        ctx.fillText(i < lives ? '❤️' : '🖤', 14 + i * 20, 88);
+      }
+      ctx.globalAlpha = 1;
+    }
+    // amaran ambulans + anak panah berkelip di bawah lorongnya selagi dia belum masuk skrin
+    if (amb && state === 'play') {
+      const blink = Math.floor(elapsed * 6) % 2;
+      if (elapsed < ambWarnUntil) {
+        const txt = '🚑 Ambulans! Bagi laluan!';
+        ctx.font = 'bold 16px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const tw = ctx.measureText(txt).width + 26, by = 224;
+        ctx.fillStyle = blink ? '#e53935' : '#1e88e5'; rr(W / 2 - tw / 2, by - 17, tw, 34, 10); ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = '#fff'; ctx.fillText(txt, W / 2, by + 1);
+      }
+      if (amb.y - amb.h / 2 > H - 10) {
+        ctx.font = 'bold 30px system-ui'; ctx.textAlign = 'center';
+        ctx.fillStyle = blink ? '#ff1744' : '#2979ff';
+        ctx.fillText('⬆', amb.x, H - 60);
+      }
+    }
+    drawMission();
+    drawLocation();
+    // pengumuman cuaca
+    if (weather.msg && state === 'play' && elapsed < weather.msg.until) {
+      ctx.globalAlpha = Math.min(1, (weather.msg.until - elapsed) * 2);
+      ctx.font = 'bold 18px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const tw = ctx.measureText(weather.msg.text).width + 28, by = 176;
+      ctx.fillStyle = 'rgba(21,40,90,.85)'; rr(W / 2 - tw / 2, by - 18, tw, 36, 10); ctx.fill();
+      ctx.strokeStyle = '#90caf9'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = '#e3f2fd'; ctx.fillText(weather.msg.text, W / 2, by + 1);
+      ctx.globalAlpha = 1;
+    }
+    if (crash) {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '64px serif'; ctx.fillStyle = '#000'; ctx.fillText('💥', crash.x, crash.y);
+    }
+    // petunjuk sentuh
+    if (state === 'play' && elapsed < 3 && matchMedia('(pointer:coarse)').matches) {
+      ctx.globalAlpha = 1 - elapsed / 3;
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 40px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText('◀', W * 0.18, H * 0.55); ctx.fillText('▶', W * 0.82, H * 0.55);
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+
+  // ---------- Loop ----------
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  addEventListener('resize', resize);
+  resize();
+  reset();
+  speed = 200; // jalan bergerak perlahan di skrin mula
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
